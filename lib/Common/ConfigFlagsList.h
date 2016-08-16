@@ -343,6 +343,7 @@ PHASE(All)
         PHASE(StackFramesEvent)
 #endif
         PHASE(PerfHint)
+        PHASE(JitLogger)
         PHASE(DeferSourceLoad)
         PHASE(ObjectMutationBreakpoint)
 #undef PHASE

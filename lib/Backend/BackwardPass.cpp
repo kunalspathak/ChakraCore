@@ -2112,7 +2112,10 @@ BackwardPass::DeadStoreTypeCheckBailOut(IR::Instr * instr)
     instr->GetBailOutInfo()->polymorphicCacheIndex = (uint)-1;
 
     // Keep the mark temp object bit if it is there so that we will not remove the implicit call check
-    instr->SetBailOutKind(IR::BailOutOnImplicitCallsPreOp | (oldBailOutKind & IR::BailOutMarkTempObject));
+    /*if (oldBailOutKind != IR::BailOutFailedEquivalentTypeCheck && oldBailOutKind != IR::BailOutFailedEquivalentFixedFieldTypeCheck)
+    {*/
+        instr->SetBailOutKind(IR::BailOutOnImplicitCallsPreOp | (oldBailOutKind & IR::BailOutMarkTempObject));
+    //}
 }
 
 void

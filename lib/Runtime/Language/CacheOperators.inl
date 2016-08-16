@@ -451,6 +451,7 @@ namespace Js
                 }
             }
 
+            bool doLogging = info->GetFunctionBody()->GetScriptId() == 218 && info->GetFunctionBody()->GetLocalFunctionId() == 6;
             if(!IsAccessor)
             {
                 if(!isProto)
@@ -462,7 +463,7 @@ namespace Js
                         isInlineSlot,
                         typeWithoutProperty,
                         requiredAuxSlotCapacity,
-                        requestContext);
+                        requestContext, doLogging);
                 }
                 else
                 {

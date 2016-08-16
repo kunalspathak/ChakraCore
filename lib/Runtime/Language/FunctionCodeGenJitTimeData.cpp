@@ -16,7 +16,6 @@ namespace Js
         }
 
         InlineCache localCache(*cache);
-
         // Need to keep a reference to the types before memory allocation in case they are tagged
         Type * type = nullptr;
         Type * typeWithoutProperty = nullptr;
@@ -330,7 +329,7 @@ namespace Js
                 id, type->GetTypeId(), typeWithoutProperty, typeSet, usesAuxSlot, isProto, isAccessor, isFieldValueFixed, keepFieldValue, false/*doesntHaveEquivalence*/, false, slotIndex, propertyId,
                 prototypeObject, propertyGuard, ctorCache, fixedFieldInfoArray, 1);
 
-            if (PHASE_TRACE(Js::ObjTypeSpecPhase, topFunctionBody) || PHASE_TRACE(Js::EquivObjTypeSpecPhase, topFunctionBody))
+            if ((PHASE_TRACE(Js::ObjTypeSpecPhase, topFunctionBody) || PHASE_TRACE(Js::EquivObjTypeSpecPhase, topFunctionBody))/* && propertyId == 8916*/)
             {
                 const PropertyRecord* propertyRecord = scriptContext->GetPropertyName(propertyId);
                 Output::Print(_u("Created ObjTypeSpecFldInfo: id %u, property %s(#%u), slot %u, type set: 0x%p\n"),
@@ -344,7 +343,7 @@ namespace Js
                 id, type->GetTypeId(), typeWithoutProperty, usesAuxSlot, isProto, isAccessor, isFieldValueFixed, keepFieldValue, isBuiltIn, slotIndex, propertyId,
                 prototypeObject, propertyGuard, ctorCache, fixedFieldInfoArray);
 
-            if (PHASE_TRACE(Js::ObjTypeSpecPhase, topFunctionBody) || PHASE_TRACE(Js::EquivObjTypeSpecPhase, topFunctionBody))
+            if ((PHASE_TRACE(Js::ObjTypeSpecPhase, topFunctionBody) || PHASE_TRACE(Js::EquivObjTypeSpecPhase, topFunctionBody))/* && propertyId == 8916*/)
             {
                 const PropertyRecord* propertyRecord = scriptContext->GetPropertyName(propertyId);
                 Output::Print(_u("Created ObjTypeSpecFldInfo: id %u, property %s(#%u), slot %u, type: 0x%p\n"),
@@ -377,6 +376,11 @@ namespace Js
             {
                 return nullptr;
             }
+        }
+
+        if (functionBody->GetScriptId() == 218 && functionBody->GetLocalFunctionId() == 6 && id == 2)
+        {
+            //printf("is it?");
         }
 
         Assert(cache->GetSize() < MAXUINT16);
@@ -665,7 +669,7 @@ namespace Js
             id, typeId, nullptr, typeSet, usesAuxSlot, isProto, isAccessor, hasFixedValue, hasFixedValue, doesntHaveEquivalence, true, slotIndex, propertyId,
             prototypeObject, propertyGuard, nullptr, fixedFieldInfoArray, fixedFunctionCount/*, nullptr, nullptr, nullptr*/);
 
-        if (PHASE_TRACE(Js::ObjTypeSpecPhase, topFunctionBody) || PHASE_TRACE(Js::EquivObjTypeSpecPhase, topFunctionBody))
+        if ((PHASE_TRACE(Js::ObjTypeSpecPhase, topFunctionBody) || PHASE_TRACE(Js::EquivObjTypeSpecPhase, topFunctionBody))/* && propertyId == 8916*/)
         {
             if (typeSet)
             {

@@ -6845,6 +6845,18 @@ Lowerer::GenerateCachedTypeCheck(IR::Instr *instrChk, IR::PropertySymOpnd *prope
 
     if (doEquivTypeCheck)
     {
+
+        if (PHASE_TRACE(Js::JitLoggerPhase, func))
+        {
+            this->m_lowererMD.LoadHelperArgument(instrChk, IR::AddrOpnd::New((Js::Var)typeCheckGuard, IR::AddrOpndKindDynamicTypeCheckGuard, func, true));
+            this->m_lowererMD.LoadHelperArgument(instrChk, typeOpnd);
+            IR::RegOpnd* loggerOpnd = IR::RegOpnd::New(TyUint8, func);
+            IR::HelperCallOpnd* loggerHelperCallOpnd = IR::HelperCallOpnd::New(IR::HelperJit_Logger, func);
+            IR::Instr* loggerCallInstr = IR::Instr::New(Js::OpCode::Call, loggerOpnd, loggerHelperCallOpnd, func);
+            instrChk->InsertBefore(loggerCallInstr);
+            this->m_lowererMD.LowerCall(loggerCallInstr, 0);
+        }
+
         // TODO (ObjTypeSpec): For isolated equivalent type checks it would be good to emit a check if the cache is still valid, and
         // if not go straight to live polymorphic cache.  This way we wouldn't have to bail out and re-JIT, and also wouldn't continue
         // to try the equivalent type cache, miss it and do the slow comparison. This may be as easy as sticking a null on the main
@@ -6857,6 +6869,8 @@ Lowerer::GenerateCachedTypeCheck(IR::Instr *instrChk, IR::PropertySymOpnd *prope
 
         instrChk->InsertBefore(labelCheckEquivalentType);
 
+        this->m_lowererMD.LoadHelperArgument(instrChk, IR::IntConstOpnd::New(func->GetSourceContextId(), TyUint16, func, true));
+        this->m_lowererMD.LoadHelperArgument(instrChk, IR::IntConstOpnd::New(func->GetLocalFunctionId(), TyUint16, func, true));
         this->m_lowererMD.LoadHelperArgument(instrChk, IR::AddrOpnd::New((Js::Var)typeCheckGuard, IR::AddrOpndKindDynamicTypeCheckGuard, func, true));
         this->m_lowererMD.LoadHelperArgument(instrChk, typeOpnd);
 
@@ -7058,6 +7072,22 @@ Lowerer::CreateEquivalentTypeGuardAndLinkToGuardedProperties(Js::Type* type, IR:
     for (uint16 ti = 0; ti < cachedTypeCount; ti++)
     {
         cache->types[ti] = typeSet->GetType(ti);
+    }
+
+    //if (PHASE_TRACE(Js::ObjTypeSpecPhase, this->m_func) || PHASE_TRACE(Js::TracePropertyGuardsPhase, this->m_func))
+    if (PHASE_TRACE(Js::EquivObjTypeSpecPhase, this->m_func))
+    {
+        if (cachedTypeCount < typeSet->GetCount())
+        {
+            Js::PropertyId propertyId = propertySymOpnd->GetPropertyId();
+            printf("*Ignored EquivalentTypeSet : sorted(%d), %S, %S (%u)", typeSet->GetSortedAndDuplicatesRemoved(), this->m_func->GetJnFunction()->GetDisplayName(), GetScriptContext()->GetPropertyNameLocked(propertyId)->GetBuffer(), propertyId);
+            printf("[0x%p", typeSet->GetType(cachedTypeCount++));
+            for (uint16 ti = cachedTypeCount; ti < typeSet->GetCount(); ti++)
+            {
+                printf(", 0x%p", typeSet->GetType(ti));
+            }
+            printf("]\n");
+        }
     }
 
     // Populate property ID and slot index arrays on the guard's cache. We iterate over the

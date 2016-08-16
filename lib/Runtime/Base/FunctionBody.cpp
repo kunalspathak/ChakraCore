@@ -5919,11 +5919,11 @@ namespace Js
         {
             PolymorphicInlineCache * polymorphicInlineCache = CreatePolymorphicInlineCache(index, PolymorphicInlineCache::GetInitialSize());
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
-            if (PHASE_VERBOSE_TRACE1(Js::PolymorphicInlineCachePhase))
+           /* if (PHASE_VERBOSE_TRACE1(Js::PolymorphicInlineCachePhase))
             {
                 this->DumpFullFunctionName();
                 Output::Print(_u(": New PIC, index = %d, size = %d\n"), index, PolymorphicInlineCache::GetInitialSize());
-            }
+            }*/
 
 #endif
 #if PHASE_PRINT_INTRUSIVE_TESTTRACE1
@@ -5952,11 +5952,11 @@ namespace Js
         PolymorphicInlineCache * newPolymorphicInlineCache = CreatePolymorphicInlineCache(index, newPolymorphicInlineCacheSize);
         polymorphicInlineCache->CopyTo(propertyId, m_scriptContext, newPolymorphicInlineCache);
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
-        if (PHASE_VERBOSE_TRACE1(Js::PolymorphicInlineCachePhase))
+        /*if (PHASE_VERBOSE_TRACE1(Js::PolymorphicInlineCachePhase))
         {
             this->DumpFullFunctionName();
             Output::Print(_u(": Bigger PIC, index = %d, oldSize = %d, newSize = %d\n"), index, polymorphicInlineCacheSize, newPolymorphicInlineCacheSize);
-        }
+        }*/
 #endif
 #if PHASE_PRINT_INTRUSIVE_TESTTRACE1
         char16 debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];

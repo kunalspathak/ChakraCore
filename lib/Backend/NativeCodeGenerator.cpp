@@ -1840,9 +1840,9 @@ NativeCodeGenerator::GatherCodeGenData(
             entryPoint->AddWeakFuncRef(weakFuncRef, recycler);
         }
 
+        bool doLogging = functionBody->GetScriptId() == 218 && functionBody->GetLocalFunctionId() == 6;
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
-        if (PHASE_VERBOSE_TESTTRACE(Js::ObjTypeSpecPhase, functionBody) ||
-            PHASE_VERBOSE_TRACE1(Js::PolymorphicInlineCachePhase))
+        if (doLogging)
         {
             if (functionBody->GetInlineCacheCount() > 0)
             {
@@ -2053,6 +2053,10 @@ NativeCodeGenerator::GatherCodeGenData(
             }
             else
             {
+                if (functionBody->GetScriptId() == 218 && functionBody->GetLocalFunctionId() == 6)
+                {
+                    //printf("is it?");
+                }
                 const auto polymorphicInlineCache = functionBody->GetPolymorphicInlineCache(i);
 
                 if (polymorphicInlineCache != nullptr)
@@ -2117,7 +2121,7 @@ NativeCodeGenerator::GatherCodeGenData(
                 if (polymorphicInlineCache != nullptr)
                 {
 #if ENABLE_DEBUG_CONFIG_OPTIONS
-                    if (PHASE_VERBOSE_TRACE1(Js::PolymorphicInlineCachePhase))
+                    if (doLogging)
                     {
                         if (IsInlinee) Output::Print(_u("\t"));
                         Output::Print(_u("\t%d: PIC size = %d\n"), i, polymorphicInlineCache->GetSize());
@@ -2125,13 +2129,13 @@ NativeCodeGenerator::GatherCodeGenData(
                         polymorphicInlineCache->Dump();
 #endif
                     }
-                    else if (PHASE_TRACE1(Js::PolymorphicInlineCachePhase))
+                    /*else if (PHASE_TRACE1(Js::PolymorphicInlineCachePhase))
                     {
                         Js::PropertyId propertyId = functionBody->GetPropertyIdFromCacheId(i);
                         Js::PropertyRecord const * const propertyRecord = functionBody->GetScriptContext()->GetPropertyName(propertyId);
                         Output::Print(_u("Trace PIC JIT function %s (%s) field: %s (index: %d) \n"), functionBody->GetDisplayName(), functionBody->GetDebugNumberSet(debugStringBuffer),
                             propertyRecord->GetBuffer(), i);
-                    }
+                    }*/
 #endif
 
                     byte polyCacheUtil = profileData->GetFldInfo(functionBody, i)->polymorphicInlineCacheUtilization;

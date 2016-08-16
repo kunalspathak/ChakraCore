@@ -434,7 +434,7 @@ namespace Js
             const bool isInlineSlot,
             Type *const typeWithoutProperty,
             int requiredAuxSlotCapacity,
-            ScriptContext *const requestContext);
+            ScriptContext *const requestContext, bool doLogging = false);
 
         void CacheProto(
             DynamicObject *const prototypeObjectWithProperty,
@@ -443,7 +443,7 @@ namespace Js
             const bool isInlineSlot,
             const bool isMissing,
             Type *const type,
-            ScriptContext *const requestContext);
+            ScriptContext *const requestContext, bool doLogging = false);
 
         void CacheAccessor(
             const bool isGetter,
@@ -453,7 +453,7 @@ namespace Js
             Type *const type,
             DynamicObject *const object,
             const bool isOnProto,
-            ScriptContext *const requestContext);
+            ScriptContext *const requestContext, bool doLogging = false);
 
         template<
             bool CheckLocal,

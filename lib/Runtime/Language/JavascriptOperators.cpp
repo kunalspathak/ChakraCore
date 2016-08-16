@@ -8123,7 +8123,7 @@ CommonNumber:
 #if ENABLE_DEBUG_CONFIG_OPTIONS
     void JavascriptOperators::TracePropertyEquivalenceCheck(const JitEquivalentTypeGuard* guard, const Type* type, const Type* refType, bool isEquivalent, uint failedPropertyIndex)
     {
-        if (PHASE_TRACE1(Js::EquivObjTypeSpecPhase))
+        if (false/*PHASE_TRACE1(Js::EquivObjTypeSpecPhase)*/)
         {
             uint propertyCount = guard->GetCache()->record.propertyCount;
 
@@ -8190,16 +8190,34 @@ CommonNumber:
         return entry->slotIndex == Constants::NoSlot && !entry->mustBeWritable;
     }
 
-    bool JavascriptOperators::CheckIfTypeIsEquivalent(Type* type, JitEquivalentTypeGuard* guard)
+    bool JavascriptOperators::CheckIfTypeIsEquivalent(Type* type, JitEquivalentTypeGuard* guard, uint16 functionId, uint16 scriptId)
     {
+        bool doLogging = (scriptId == 218 && functionId == 6) || true;
+        if (!PHASE_TRACE1(Js::JitLoggerPhase))
+        {
+            doLogging = false;
+        }
+        
+        if (doLogging)
+        {
+            printf("CheckIfTypeIsEquivalent: type = 0x%p, guard = 0x%p, value = 0x%p", type, guard, (void *)guard->GetValue());
+        }
         if (guard->GetValue() == 0)
         {
+            if (doLogging)
+            {
+                printf("(guard->GetValue() == 0) false.\n");
+            }
             return false;
         }
 
         if (!guard->IsInvalidatedDuringSweep() && guard->GetType()->GetScriptContext() != type->GetScriptContext())
         {
             // For valid guard value, can't cache cross-context objects
+            if (doLogging)
+            {
+                printf("(cctx on valid guard) false.\n");
+            }
             return false;
         }
 
@@ -8221,9 +8239,20 @@ CommonNumber:
 #if DBG
             if (refType == nullptr)
             {
+                if (doLogging)
+                {
+                    printf("result = (refType == nullptr) false.\n");
+                }
                 for (int i = 1;i < EQUIVALENT_TYPE_CACHE_SIZE;i++)
                 {
                     AssertMsg(equivTypes[i] == nullptr, "In equiv typed caches, if first element is nullptr, all others should be nullptr");
+                }
+            }
+            else
+            {
+                if (doLogging)
+                {
+                    printf("result = (cctx on invalidated guard) false.\n");
                 }
             }
 #endif
@@ -8234,7 +8263,7 @@ CommonNumber:
             type == equivTypes[4] || type == equivTypes[5] || type == equivTypes[6] || type == equivTypes[7])
         {
 #if DBG
-            if (PHASE_TRACE1(Js::EquivObjTypeSpecPhase))
+            if (false/*PHASE_TRACE1(Js::EquivObjTypeSpecPhase)*/)
             {
                 if (guard->WasReincarnated())
                 {
@@ -8243,8 +8272,30 @@ CommonNumber:
                 }
             }
 #endif
+            if (doLogging)
+            {
+                if (guard->IsInvalidatedDuringSweep())
+                {
+                    printf("result = (replaced invalidated guard's oldType 0x%lu) true.\n", (unsigned long)guard->GetValue());
+                }
+                else
+                {
+                    printf("result = (replaced valid guard's oldType 0x%lu) true.\n", (unsigned long)guard->GetValue());
+                }
+            }
             guard->SetType(type);
             return true;
+        }
+
+        if (doLogging)
+        {
+            printf(", eqivTypes = [0x%p", equivTypes[0]);
+            for (int i = 1;i < EQUIVALENT_TYPE_CACHE_SIZE;i++)
+            {
+                if (equivTypes[i] == nullptr) break;
+                printf(", 0x%p", equivTypes[i]);
+            }
+            printf("], ");
         }
 
         // If we didn't find the type in the cache, let's check if it's equivalent the slow way, by comparing
@@ -8260,25 +8311,31 @@ CommonNumber:
 
         if (cache->IsLoadedFromProto() && type->GetPrototype() != refType->GetPrototype())
         {
-            if (PHASE_TRACE1(Js::EquivObjTypeSpecPhase))
+            if (false/*PHASE_TRACE1(Js::EquivObjTypeSpecPhase)*/)
             {
                 Output::Print(_u("EquivObjTypeSpec: failed check on operation %u (type = 0x%x, ref type = 0x%x, proto = 0x%x, ref proto = 0x%x) \n"),
                     guard->GetObjTypeSpecFldId(), type, refType, type->GetPrototype(), refType->GetPrototype());
                 Output::Flush();
             }
-
+            if (doLogging)
+            {
+                printf("result = (prototype mismatch) false.\n");
+            }
             return false;
         }
 
         if (type->GetTypeId() != refType->GetTypeId())
         {
-            if (PHASE_TRACE1(Js::EquivObjTypeSpecPhase))
+            if (false/*PHASE_TRACE1(Js::EquivObjTypeSpecPhase)*/)
             {
                 Output::Print(_u("EquivObjTypeSpec: failed check on operation %u (type = 0x%x, ref type = 0x%x, proto = 0x%x, ref proto = 0x%x) \n"),
                     guard->GetObjTypeSpecFldId(), type, refType, type->GetPrototype(), refType->GetPrototype());
                 Output::Flush();
             }
-
+            if (doLogging)
+            {
+                printf("result = (typeId mismatch) false.\n");
+            }
             return false;
         }
 
@@ -8298,6 +8355,18 @@ CommonNumber:
         {
             Js::DynamicTypeHandler* typeHandler = (static_cast<DynamicType*>(type))->GetTypeHandler();
             isEquivalent = typeHandler->IsObjTypeSpecEquivalent(type, cache->record, failedPropertyIndex);
+
+            if (doLogging)
+            {
+                Js::TypeEquivalenceRecord record = cache->record;
+                ScriptContext* scriptContext = type->GetScriptContext();
+                printf("\n");
+                for (uint i = 0;i < record.propertyCount;i++)
+                {
+                    const EquivalentPropertyEntry refInfo = record.properties[i];
+                    printf("\t%d. %S\n", (i + 1), scriptContext->GetPropertyName(refInfo.propertyId)->GetBuffer());
+                }
+            }
         }
         else
         {
@@ -8311,6 +8380,10 @@ CommonNumber:
 
         if (!isEquivalent)
         {
+            if (doLogging)
+            {
+                printf("result = (slowPath not equivalent) false.\n");
+            }
             return false;
         }
 
@@ -8327,7 +8400,7 @@ CommonNumber:
         // We have some empty slots, let us use those first
         if (emptySlotIndex != -1)
         {
-            if (PHASE_TRACE1(Js::EquivObjTypeSpecPhase))
+            if (false/*PHASE_TRACE1(Js::EquivObjTypeSpecPhase)*/)
             {
                 Output::Print(_u("EquivObjTypeSpec: Saving type in unused slot of equiv types cache. \n"));
                 Output::Flush();
@@ -8354,7 +8427,7 @@ CommonNumber:
                 cache->nextEvictionVictim = (cache->nextEvictionVictim + 1) & (EQUIVALENT_TYPE_CACHE_SIZE - 1);
             }
 
-            if (PHASE_TRACE1(Js::EquivObjTypeSpecPhase))
+            if (false/*PHASE_TRACE1(Js::EquivObjTypeSpecPhase)*/)
             {
                 Output::Print(_u("EquivObjTypeSpec: Saving type in used slot of equiv types cache at index = %d. NextEvictionVictim = %d. \n"), index, cache->nextEvictionVictim);
                 Output::Flush();
@@ -8377,8 +8450,26 @@ CommonNumber:
             }
         }
 
+        if (doLogging)
+        {
+            if (guard->IsInvalidatedDuringSweep())
+            {
+                printf("result = (slowpath replaced invalidated guard's oldType 0x%lu) true.\n", (unsigned long)guard->GetValue());
+            }
+            else
+            {
+                printf("result = (slowpath replaced valid guard's oldType 0x%lu) true.\n", (unsigned long)guard->GetValue());
+            }
+        }
         guard->SetType(type);
         return true;
+    }
+
+    void JavascriptOperators::Jit_Logger(Type * type, JitEquivalentTypeGuard* guard)
+    {
+        printf("Jit_Logger::Comparing types::");
+        printf("Type = 0x%p, Expected = 0x%p", type, (void *)guard->GetValue());
+        printf("\n");
     }
 
     void JavascriptOperators::GetPropertyIdForInt(uint64 value, ScriptContext* scriptContext, PropertyRecord const ** propertyRecord)

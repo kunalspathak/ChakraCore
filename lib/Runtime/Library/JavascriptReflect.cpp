@@ -132,7 +132,22 @@ namespace Js
         Var target = args[1];
         Var propertyKey = args.Info.Count > 2 ? args[2] : undefinedValue;
 
+
         Var receiver = args.Info.Count > 3 ? args[3] : target;
+
+
+        const char16* strMessage = JavascriptString::FromVar(receiver)->GetSz();
+        const char16* strProperty = JavascriptString::FromVar(propertyKey)->GetSz();
+        if (lstrcmpiW(strProperty, L"type") == 0)
+        {
+            char16 toPrint[1024];
+            swprintf_s(toPrint, 1024, _u("%s : Object = 0x%p, Type = 0x%p, TypeHandler = 0x%p, locked = %d, shared = %d"), strMessage,
+                    target, RecyclableObject::FromVar(target)->GetType(),
+                    DynamicObject::FromVar(target)->GetDynamicType()->GetTypeHandler(),
+                       DynamicObject::FromVar(target)->GetDynamicType()->GetIsLocked(),
+                       DynamicObject::FromVar(target)->GetDynamicType()->GetIsShared());
+            return JavascriptString::NewCopyBuffer(toPrint, (charcount_t)wcslen(toPrint), scriptContext);
+        }
 
         return JavascriptOperators::GetElementIHelper(RecyclableObject::FromVar(target), propertyKey, receiver, scriptContext);
     }
