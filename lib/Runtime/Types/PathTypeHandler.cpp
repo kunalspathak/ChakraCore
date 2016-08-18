@@ -509,8 +509,26 @@ namespace Js
         ScriptContext* scriptContext = instance->GetScriptContext();
         DynamicType* currentType = instance->GetDynamicType();
 
+        bool doLogging = false;
+
+        if (doLogging)
+        {
+            printf("---------------------------------------------\n");
+            printf("Property : %S (%u) on object 0x%p\n", propertyRecord->GetBuffer(), propertyRecord->GetPropertyId(), instance);
+            printf("\toldTypePath : 0x%p\n", this->typePath);
+            printf("\toldTypeHandler : 0x%p\n", this);
+            printf("\toldDynamicType : 0x%p\n", currentType);
+        }
+
         DynamicType* nextType = this->PromoteType<false>(currentType, propertyRecord, false, scriptContext, instance, propertyIndex);
         PathTypeHandlerBase* nextPath = (PathTypeHandlerBase*) nextType->GetTypeHandler();
+
+        if (doLogging)
+        {
+            printf("\tnewTypePath : 0x%p\n", nextPath->typePath);
+            printf("\tnewTypeHandler : 0x%p\n", nextPath);
+            printf("\tnewDynamicType : 0x%p\n", nextType);
+        }
 
         instance->EnsureSlots(this->GetSlotCapacity(), nextPath->GetSlotCapacity(), scriptContext, nextType->GetTypeHandler());
 
@@ -1376,7 +1394,144 @@ namespace Js
 
     void PathTypeHandlerBase::SetPrototype(DynamicObject* instance, RecyclableObject* newPrototype)
     {
-        ConvertToSimpleDictionaryType(instance, GetPathLength())->SetPrototype(instance, newPrototype);
+        AssertMsg(instance->GetScriptContext() == newPrototype->GetScriptContext(), "Trying to setPrototype from different script context.");
+
+        uint16 requestedInlineSlotCapacity = this->GetInlineSlotCapacity();
+        const bool useObjectHeaderInlining = FunctionBody::DoObjectHeaderInliningForConstructor(requestedInlineSlotCapacity);
+        ScriptContext* scriptContext = newPrototype->GetScriptContext();
+        DynamicType* dynamicType = nullptr;
+        const char16 * cacheType = nullptr;
+
+#if DBG
+        DynamicType* oldCachedType = nullptr;
+        char16 reason[1024];
+        swprintf_s(reason, 1024, _u("Cache not populated."));
+#endif
+
+        bool usingZeroSlotCache = (this->GetInlineSlotCapacity() == 0 && this->GetOffsetOfInlineSlots() == 0);
+
+        if (PHASE_TRACE1(TypeSharePhase) || PHASE_VERBOSE_TRACE1(TypeSharePhase))
+        {
+            cacheType = usingZeroSlotCache ? _u("ZeroSlots") : _u("NonZeroSlots");
+        }
+
+        Js::InternalPropertyIds propertyIdHoldingCache = usingZeroSlotCache ? 
+            Js::InternalPropertyIds::ZTypeOfPrototypeObject : Js::InternalPropertyIds::NZTypeOfPrototypeObject;
+
+        if (newPrototype->GetInternalProperty(newPrototype, propertyIdHoldingCache, (Js::Var*)&dynamicType, nullptr, scriptContext))
+        {
+            // Verify if existing dynamicType meets requirements of this typeHandler. If not, reset it
+            DynamicTypeHandler *const dynamicTypeHandler = dynamicType->GetTypeHandler();
+            if (dynamicType == nullptr
+                // dynamicType not found
+                || (Js::Var)dynamicType == newPrototype->GetLibrary()->GetUndefined()
+                // dynamicTypeHandler's offset of inlineSlots doesn't match
+                || dynamicTypeHandler->GetOffsetOfInlineSlots() != GetOffsetOfInlineSlots()
+                // dynamicTypeHandler's inlineSlotCapacity is not same as that of current typeHandler.
+                || dynamicTypeHandler->GetInlineSlotCapacity() !=
+                (
+                    useObjectHeaderInlining
+                    ? DynamicTypeHandler::RoundUpObjectHeaderInlinedInlineSlotCapacity(requestedInlineSlotCapacity)
+                    : DynamicTypeHandler::RoundUpInlineSlotCapacity(requestedInlineSlotCapacity)
+                    )
+                )
+            {
+#if DBG
+                if (PHASE_VERBOSE_TRACE1(TypeSharePhase))
+                {
+                    oldCachedType = dynamicType;
+
+                    if (dynamicType == nullptr)
+                    {
+                        swprintf_s(reason, 1024, _u("cachedType was null"));
+                    }
+                    else if ((Js::Var)dynamicType == newPrototype->GetLibrary()->GetUndefined())
+                    {
+                        swprintf_s(reason, 1024, _u("cachedType was undefined"));
+                    }
+                    else if (dynamicTypeHandler->GetOffsetOfInlineSlots() != GetOffsetOfInlineSlots())
+                    {
+                        swprintf_s(reason, 1024, _u("offsetOfInlineSlot mismatch. Required = %d, Cached = %d"), this->GetOffsetOfInlineSlots(), dynamicTypeHandler->GetOffsetOfInlineSlots());
+                    }
+                    else
+                    {
+                        uint16 cachedCapacity = dynamicTypeHandler->GetInlineSlotCapacity();
+                        uint16 requiredCapacity = useObjectHeaderInlining
+                            ? DynamicTypeHandler::RoundUpObjectHeaderInlinedInlineSlotCapacity(requestedInlineSlotCapacity)
+                            : DynamicTypeHandler::RoundUpInlineSlotCapacity(requestedInlineSlotCapacity);
+                        swprintf_s(reason, 1024, _u("inlineSlotCapacity mismatch. Required = %d, Cached = %d"), requiredCapacity, cachedCapacity);
+                    }
+                }
+#endif
+                dynamicType = nullptr;
+            }
+        }
+        else
+        {
+            Assert(!dynamicType || (Js::Var)dynamicType == scriptContext->GetLibrary()->GetUndefined());
+            dynamicType = nullptr;
+        }
+
+        bool wasCacheOutdated = (dynamicType == nullptr);
+
+        if (dynamicType == nullptr)
+        {
+            SimplePathTypeHandler* newTypeHandler = SimplePathTypeHandler::New(scriptContext, scriptContext->GetLibrary()->GetRootPath(), 0, this->GetInlineSlotCapacity(), this->GetOffsetOfInlineSlots(), true, true);
+            dynamicType = DynamicType::New(scriptContext, instance->GetDynamicType()->GetTypeId(), newPrototype, RecyclableObject::DefaultEntryPoint, newTypeHandler, true, true);
+            dynamicType->flags = instance->GetDynamicType()->flags;
+            
+            if (PHASE_TRACE1(TypeSharePhase))
+            {
+#if DBG
+                if (PHASE_VERBOSE_TRACE1(TypeSharePhase))
+                {
+                    Output::Print(_u("TypeSharing: Updating prototype [0x%p] object's %s cache from 0x%p to 0x%p in __proto__. Reason = %s\n"), newPrototype, cacheType, oldCachedType, dynamicType, reason);
+                }
+                else
+                {
+#endif
+                    Output::Print(_u("TypeSharing: Updating prototype object's %s cache in __proto__.\n"), cacheType);
+#if DBG
+                }
+#endif 
+                Output::Flush();
+            }
+
+            newPrototype->SetInternalProperty(propertyIdHoldingCache, (Var)dynamicType, PropertyOperationFlags::PropertyOperation_Force, nullptr);
+        }
+        else
+        {
+            Assert(dynamicType->GetIsShared());
+        }
+
+        for (PropertyIndex i = 0; i < GetPropertyCount(); i++)
+        {
+            PathTypeHandlerBase * pathTypeHandler = (PathTypeHandlerBase*)dynamicType->GetTypeHandler();
+            Js::PropertyId propertyId = GetPropertyId(scriptContext, i);
+
+            PropertyIndex propertyIndex = GetPropertyIndex(propertyId);
+            dynamicType = pathTypeHandler->PromoteType<true>(dynamicType, scriptContext->GetPropertyName(propertyId), true, scriptContext, nullptr, &propertyIndex);
+        }
+
+        if (PHASE_TRACE1(TypeSharePhase) && !wasCacheOutdated)
+        {
+#if DBG
+            if (PHASE_VERBOSE_TRACE1(TypeSharePhase))
+            {
+                Output::Print(_u("TypeSharing: Reusing prototype [0x%p] object's %s cache 0x%p in __proto__.\n"), newPrototype, cacheType, dynamicType);
+            }
+            else
+            {
+#endif
+                Output::Print(_u("TypeSharing: Reusing prototype object's %s cache in __proto__.\n"), cacheType);
+#if DBG
+            }
+#endif
+            Output::Flush();
+        }
+
+        dynamicType->SetPrototype(newPrototype);
+        instance->ReplaceType(dynamicType);
     }
 
     void PathTypeHandlerBase::SetIsPrototype(DynamicObject* instance)
@@ -2095,7 +2250,7 @@ namespace Js
             successorTypeWeakRef = typeWeakRef;
             return;
         }
-
+        
         // This is an interesting transition from the fixed fields perspective.  If there are any other types using this type handler
         // (which can happen if we don't isolate prototypes but force type change on becoming proto), they will continue to do so. So
         // we will have two different type handlers at the exact same point in type path evolution sharing the same type path, and
@@ -2110,6 +2265,8 @@ namespace Js
 
         Assert(type->typeHandler == this);
         type->typeHandler = newTypeHandler;
+
+        //printf("Creating PathTypeHandler 0x%p for %S, type = 0x%p.\n", newTypeHandler, propertyRecord->GetBuffer(), type);
 
 #ifdef PROFILE_TYPES
         scriptContext->convertSimplePathToPathCount++;

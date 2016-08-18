@@ -344,6 +344,7 @@ PHASE(All)
 #endif
         PHASE(PerfHint)
         PHASE(JitLogger)
+        PHASE(TypeShare)
         PHASE(DeferSourceLoad)
         PHASE(ObjectMutationBreakpoint)
 #undef PHASE
