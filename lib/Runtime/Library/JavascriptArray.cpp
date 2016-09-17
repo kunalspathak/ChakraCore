@@ -14,11 +14,43 @@ namespace Js
     static const char EmptySegmentData[sizeof(SparseArraySegmentBase)] = {0};
     const SparseArraySegmentBase *JavascriptArray::EmptySegment = (SparseArraySegmentBase *)&EmptySegmentData;
 
+    uint JavascriptNativeFloatArray::allocationBuckets[][3] =
+    {
+        { 3, 0, 0 },
+        { 5, 0, 0 },
+        { 8, 0, 0 },
+    };
 #if defined(_M_X64_OR_ARM64)
     const Var JavascriptArray::MissingItem = (Var)0x8000000280000002;
+    uint JavascriptNativeIntArray::allocationBuckets[][3] =
+    {
+
+        {2, 0, 0},
+        {6, 0, 0},
+        {8, 0, 0},
+    };
+    uint JavascriptArray::allocationBuckets[][3] =
+    {
+        {4, 0, 0},
+        {6, 0, 0},
+        {8, 0, 0},
+    };
 #else
     const Var JavascriptArray::MissingItem = (Var)0x80000002;
+    uint JavascriptNativeIntArray::allocationBuckets[][3] =
+    {
+
+        { 3, 0, 0 },
+        { 7, 0, 0 },
+        { 8, 0, 0 },
+    };
+    uint JavascriptArray::allocationBuckets[][3] =
+    {
+        { 4, 0, 0 },
+        { 8, 0, 0 },
+    };
 #endif
+
     const int32 JavascriptNativeIntArray::MissingItem = 0x80000002;
     static const uint64 FloatMissingItemPattern = 0x8000000280000002ull;
     const double JavascriptNativeFloatArray::MissingItem = *(double*)&FloatMissingItemPattern;

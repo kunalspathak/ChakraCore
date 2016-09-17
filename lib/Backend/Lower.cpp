@@ -3790,6 +3790,7 @@ Lowerer::GenerateArrayAlloc(IR::Instr *instr, uint32 * psize, Js::ArrayCallSiteI
     const IR::AutoReuseOpnd autoReuseHeadOpnd(headOpnd, func, false);
     IR::Instr * leaHeadInstr = nullptr;
     bool isHeadSegmentZeroed = false;
+
     if (ArrayType::HasInlineHeadSegment(count))
     {
         uint32 allocCount = count == 0 ? Js::SparseArraySegmentBase::SMALL_CHUNK_SIZE : count;
@@ -3887,87 +3888,58 @@ Lowerer::GenerateArrayAlloc(IR::Instr *instr, IR::Opnd * arrayLenOpnd, Js::Array
     const IR::AutoReuseOpnd autoReuseHeadOpnd(headOpnd, func, false);
     IR::Instr * leaHeadInstr = nullptr;
 
-    //REVIEW: Assumption is that count will always in InlineHeadSegment because it will always be less than 64.
-    /*
-        ; ***** size = (arrayLen == 0) ? Js::SparseArraySegmentBase::HEAD_CHUNK_SIZE ? arrayLen *****
-        MOV sizeOpnd,           arrayLenOpnd                  ; Make copy so it doesn't get overwritten by HEAD_CHUNK_SIZE
-        CMP sizeOpnd,           0
-        LGE $L1
-        MOV sizeOpnd,           HEAD_CHUNK_SIZE;
-    $L1:
-        ; ***** calculate alignedArrayAllocationSize and alignedHeadSegSize *****
-        MOV objectSizeOpnd,     objectSize              ; objectSize = sizeof(ArrayType) + sizeof(SparseArraySegment<typename ArrayType::TElement>)
-        arraySize               = MUL sizeOpnd, elementSize     ; elementSize = sizeof(T::TElement) //TODO: Update this comment once get approver that SHL is ok todo.
-        SHL sizeOpnd,           N                               ; where 2^N = elementSize
-        temp1                   = ADD objectSizeOpnd, arraySizeOpnd
-        temp2                   = ADD temp1, (HeapConstants::ObjectGranularity - 1)
-        alignedArrayAllocSize   = AND temp2, ~(HeapConstants::ObjectGranularity - 1)
-        temp1                   = SUB alignedArrayAllocSize, objectSizeOpnd
-        alignedHeadSegSize      = DIV temp1, N                   ; 2^N = sizeof(typename T::TElement)
-
-        ; ***** Call to allocation helper *****
-        PUSH recycler
-        PUSH alignedArrayAllocSize
-        s10 = CALL AllocMemForJavascriptIntArray
-
-        ; ***** Load headSeg/initialize it *****
-        dstOpnd                 = s10
-        headOpnd                = LEA [s11+36]
-
-        ; ***** Evaluate arrayFlags *****
-        CMP sizeOpnd,           0
-        JE  $noMissingValues
-        MOV arrayFlagsOpnd,     Js::DynamicObjectFlags::ObjectArrayFlagsTag
-        JMP $skip
-$noMissingValues:
-        MOV arrayFlagsOpnd,     Js::DynamicObjectFlags::InitialArrayValue
-$skip:
-        ; ***** Array object initialization *****
-        ...
-        ...
-        MOV [dstOpnd+12],       arrayFlagsOpnd                  ; set arrayFlags
-        MOV [dstOpnd+16],       arrayLenOpnd                    ; set length field of JavascriptNativeIntArray
-        ...
-        MOV [headOpnd+4],       arrayLenOpnd                    ; set length field of HeadSegment
-        MOV [headOpnd+4],       alignedHeadSegSize              ; set size field of HeadSegment
-    */
-
-    IR::Opnd * sizeOpnd = IR::RegOpnd::New(TyUint32, func);
+    //uint alignedHeadSegmentSize;
+    //size_t arrayAllocSize;
     IR::Opnd * arraySizeOpnd = IR::RegOpnd::New(TyUint32, func);
-    
     IR::Opnd * alignedArrayAllocSizeOpnd = IR::RegOpnd::New(TyUint32, func);
-    IR::Opnd * tempOpnd1 = IR::RegOpnd::New(TyUint32, func);
-    IR::Opnd * tempOpnd2 = IR::RegOpnd::New(TyUint32, func);
-    *alignedHeadSegSizeOpnd = IR::RegOpnd::New(TyUint32, func);
+    
+    IR::LabelInstr * doneCalculatingAllocSize = IR::LabelInstr::New(Js::OpCode::Label, func);
+    IR::LabelInstr * skipToNextBucket = nullptr;
+    uint8 bucketsCount = ArrayType::AllocationBucketsCount;
 
-    // ***** size = (arrayLen == 0) ? Js::SparseArraySegmentBase::HEAD_CHUNK_SIZE ? arrayLen *****
-    Lowerer::InsertMove(sizeOpnd, arrayLenOpnd, instr);
-    Lowerer::InsertCompare(sizeOpnd, IR::IntConstOpnd::New(0, TyUint32, func), instr);
+    // If allocation size for current ArrayType has already calculated, no need to recalculate it.
+    bool determineAllocationSize = ArrayType::allocationBuckets[0][1] == 0;
+    //uint alignedHeadSegmentSize = 0;
+    for (uint8 i = 0;i < bucketsCount;i++)
+    {
+        // Check if we have already calculated allocSize 
+        if (determineAllocationSize)
+        {
+            ArrayType::allocationBuckets[i][2] = (uint)Js::JavascriptArray::DetermineAllocationSize<ArrayType, 0>(ArrayType::allocationBuckets[i][0], nullptr, &ArrayType::allocationBuckets[i][1]);
+        }
+        else
+        {
+            // Ensure we already have allocation size calculated and within range
+            Assert(ArrayType::allocationBuckets[i][1] > 0 && ArrayType::allocationBuckets[i][1] <= ArrayType::allocationBuckets[bucketsCount - 1][1]);
+            Assert(ArrayType::allocationBuckets[i][2] > 0 && ArrayType::allocationBuckets[i][2] <= ArrayType::allocationBuckets[bucketsCount - 1][2]);
+        }
+        
 
-    IR::LabelInstr * notSmallChunkSizeLabel = IR::LabelInstr::New(Js::OpCode::Label, func);
-    Lowerer::InsertBranch(Js::OpCode::BrGt_A, notSmallChunkSizeLabel, instr);
-    Lowerer::InsertMove(sizeOpnd, IR::IntConstOpnd::New(Js::SparseArraySegmentBase::HEAD_CHUNK_SIZE, TyUint32, func), instr);
-    instr->InsertBefore(notSmallChunkSizeLabel);
+        //  CMP  arrayLen, currentBucket
+        //  JG   $checkNextBucket
+        if (i != (bucketsCount - 1))
+        {
+            Lowerer::InsertCompare(arrayLenOpnd, IR::IntConstOpnd::New((uint16)ArrayType::allocationBuckets[i][0], TyUint32, func), instr);
+            
+            skipToNextBucket = IR::LabelInstr::New(Js::OpCode::Label, func);
+            Lowerer::InsertBranch(Js::OpCode::BrGt_A, skipToNextBucket, instr);
+        }
 
-    // ***** calculate alignedArrayAllocationSize and alignedHeadSegSize *****
-    IR::Opnd * objectSizeOpnd = IR::IntConstOpnd::New(Js::JavascriptArray::DetermineObjectSize<ArrayType, 0>(), TyUint32, func);
+        //  MOV  $arrayAllocSize, <const1>
+        //  MOV  $arrayAlignedSize,  <const2>
+        //  TODO for floatArray, also have $missingItemCount = <const3> (which is <const2> * sizeof(double) / sizeof(MissingItem));
+        Lowerer::InsertMove(arraySizeOpnd, IR::IntConstOpnd::New((uint16)ArrayType::allocationBuckets[i][1], TyUint32, func), instr);
+        Lowerer::InsertMove(alignedArrayAllocSizeOpnd, IR::IntConstOpnd::New((uint16)ArrayType::allocationBuckets[i][2], TyUint32, func), instr);
 
-    // Instead of performing (arraySize * sizeof(TElement), we would use shift operation instead.
-    // The multiplier operand calculates by how much we should shift arraySize to left to achieve the same result.
-    IR::Opnd * sizeOfMultiplierOpnd = IR::IntConstOpnd::New(Math::Log2(sizeof(typename ArrayType::TElement)), TyUint32, func);
-    Lowerer::InsertShift(Js::OpCode::Shl_A, false, arraySizeOpnd, sizeOpnd, sizeOfMultiplierOpnd, instr);
-    Lowerer::InsertAdd(false, tempOpnd1, objectSizeOpnd, arraySizeOpnd, instr);
+        //  JMP  $doneCalculatingAllocSize
+        if (i != (bucketsCount - 1))
+        {
+            Lowerer::InsertBranch(Js::OpCode::Br, doneCalculatingAllocSize, instr);
+            instr->InsertBefore(skipToNextBucket);
+        }
+    }
 
-#if defined(_M_IX86_OR_ARM32)
-    Lowerer::InsertAdd(false, tempOpnd2, tempOpnd1, IR::IntConstOpnd::New(HeapConstants::ObjectGranularity - 1, TyUint32, func), instr);
-    Lowerer::InsertAnd(alignedArrayAllocSizeOpnd, tempOpnd2, IR::IntConstOpnd::New((int32)~(HeapConstants::ObjectGranularity - 1), TyInt32, func), instr);
-#else
-    Lowerer::InsertAdd(false, tempOpnd2, tempOpnd1, IR::IntConstOpnd::New((int64)(HeapConstants::ObjectGranularity - 1), TyUint64, func), instr);
-    Lowerer::InsertAnd(alignedArrayAllocSizeOpnd, tempOpnd2, IR::IntConstOpnd::New(~((int64)(HeapConstants::ObjectGranularity - 1)), TyInt64, func), instr);
-#endif
-    Lowerer::InsertSub(false, tempOpnd1, alignedArrayAllocSizeOpnd, objectSizeOpnd, instr);
-    Lowerer::InsertShift(Js::OpCode::ShrU_A, false, *alignedHeadSegSizeOpnd, tempOpnd1, sizeOfMultiplierOpnd, instr);
-
+    instr->InsertBefore(doneCalculatingAllocSize);
     // ***** Call to allocation helper *****
     this->m_lowererMD.LoadHelperArgument(instr, this->LoadScriptContextValueOpnd(instr, ScriptContextValue::ScriptContextRecycler));
     this->m_lowererMD.LoadHelperArgument(instr, alignedArrayAllocSizeOpnd);
@@ -3997,7 +3969,7 @@ $skip:
 
     // ***** Array object initialization *****
     GenerateMemInit(dstOpnd, ArrayType::GetOffsetOfArrayFlags(), IR::IntConstOpnd::New((uint16)Js::DynamicObjectFlags::InitialArrayValue, TyUint16, func), instr, true);
-    GenerateMemInit(dstOpnd, ArrayType::GetOffsetOfLength(), sizeOpnd, instr, true);
+    GenerateMemInit(dstOpnd, ArrayType::GetOffsetOfLength(), arrayLenOpnd, instr, true);
 
     if (leaHeadInstr != nullptr)
     {
@@ -4009,7 +3981,7 @@ $skip:
     GenerateMemInit(dstOpnd, ArrayType::GetOffsetOfLastUsedSegmentOrSegmentMap(), headOpnd, instr, true);
     GenerateMemInit(headOpnd, Js::SparseArraySegmentBase::GetOffsetOfLeft(), 0, instr, true);
     GenerateMemInit(headOpnd, Js::SparseArraySegmentBase::GetOffsetOfLength(), 0, instr, true); // Set head segment length to 0
-    GenerateMemInit(headOpnd, Js::SparseArraySegmentBase::GetOffsetOfSize(), *alignedHeadSegSizeOpnd, instr, true);
+    GenerateMemInit(headOpnd, Js::SparseArraySegmentBase::GetOffsetOfSize(), arraySizeOpnd, instr, true);
     GenerateMemInitNull(headOpnd, Js::SparseArraySegmentBase::GetOffsetOfNext(), instr, true);
 
     *pIsHeadSegmentZeroed = true;
@@ -4040,7 +4012,7 @@ Lowerer::GenerateProfiledNewScObjArrayFastPath(IR::Instr *instr, Js::ArrayCallSi
 
         GenerateMemInit(dstOpnd, Js::JavascriptNativeIntArray::GetOffsetOfArrayCallSiteIndex(), IR::IntConstOpnd::New(profileId, TyUint16, func, true), instr, isZeroed);
         GenerateMemInit(dstOpnd, Js::JavascriptNativeIntArray::GetOffsetOfWeakFuncRef(), IR::AddrOpnd::New(weakFuncRef, IR::AddrOpndKindDynamicFunctionBodyWeakRef, m_func), instr, isZeroed);
-
+        //printf("length = %u, size = %u.\n", length, size);
         for (uint i = 0; i < size; i++)
         {
             GenerateMemInit(headOpnd, sizeof(Js::SparseArraySegmentBase) + i * sizeof(int32),
@@ -4059,6 +4031,7 @@ Lowerer::GenerateProfiledNewScObjArrayFastPath(IR::Instr *instr, Js::ArrayCallSi
         // Js::JavascriptArray::MissingItem is a Var, so it may be 32-bit or 64 bit.
         uint const offsetStart = sizeof(Js::SparseArraySegmentBase);
         uint const missingItemCount = size * sizeof(double) / sizeof(Js::JavascriptArray::MissingItem);
+        //printf("length = %u, size = %u, missingItemCount = %u.\n", length, size, missingItemCount);
         for (uint i = 0; i < missingItemCount; i++)
         {
             GenerateMemInit(
@@ -4071,6 +4044,7 @@ Lowerer::GenerateProfiledNewScObjArrayFastPath(IR::Instr *instr, Js::ArrayCallSi
     {
         uint const offsetStart = sizeof(Js::SparseArraySegmentBase);
         headOpnd = GenerateArrayAlloc<Js::JavascriptArray>(instr, &size, arrayInfo, &isZeroed, true);
+        //printf("length = %u, size = %u.\n", length, size);
         for (uint i = 0; i < size; i++)
         {
             GenerateMemInit(
@@ -4103,6 +4077,10 @@ Lowerer::GenerateProfiledNewScObjArrayFastPath(IR::Instr *instr, Js::ArrayCallSi
     Js::ProfileId profileId = static_cast<Js::ProfileId>(instr->AsProfiledInstr()->u.profileId);
     IR::Opnd * elementSizeOpnd = nullptr;
     IR::Opnd * missingItem = nullptr;
+    uint multiplier = 0;
+    uint allocationBucketsCount = 0;
+    uint(*allocationBuckets)[3];
+
     auto generateRangeCheck = [=]() {
       IR::RegOpnd *const opndValue = GenerateUntagVar(lengthOpnd->AsRegOpnd(), helperLabel, instr);
       IR::Opnd* upperBound = IR::IntConstOpnd::New(8, TyUint8, func, true);
@@ -4110,9 +4088,13 @@ Lowerer::GenerateProfiledNewScObjArrayFastPath(IR::Instr *instr, Js::ArrayCallSi
       InsertBranch(Js::OpCode::BrGt_A, true /* isUnsigned */, helperLabel, instr);
       return opndValue;
     };
+    IR::LabelInstr * arrayInitDone = IR::LabelInstr::New(Js::OpCode::Label, func);
 
     if (arrayInfo && arrayInfo->IsNativeIntArray())
     {
+        multiplier = sizeof(int32);
+        allocationBucketsCount = Js::JavascriptNativeIntArray::AllocationBucketsCount;
+        allocationBuckets = Js::JavascriptNativeIntArray::allocationBuckets;
         elementSizeOpnd = IR::IntConstOpnd::New(sizeof(Js::JavascriptNativeIntArray::TElement), TyUint8, func);
         missingItem = GetMissingItemOpnd(IRType::TyInt32, func);
         GenerateArrayInfoIsNativeIntArrayTest(instr, arrayInfo, helperLabel);
@@ -4120,11 +4102,15 @@ Lowerer::GenerateProfiledNewScObjArrayFastPath(IR::Instr *instr, Js::ArrayCallSi
         Assert(Js::JavascriptNativeIntArray::GetOffsetOfArrayFlags() + sizeof(uint16) == Js::JavascriptNativeIntArray::GetOffsetOfArrayCallSiteIndex());
         headOpnd = GenerateArrayAlloc<Js::JavascriptNativeIntArray>(instr, lengthOpnd, arrayInfo, &isZeroed, &alignedHeadSegSizeOpnd);
 
+        
         GenerateMemInit(dstOpnd, Js::JavascriptNativeIntArray::GetOffsetOfArrayCallSiteIndex(), IR::IntConstOpnd::New(profileId, TyUint16, func, true), instr, isZeroed);
         GenerateMemInit(dstOpnd, Js::JavascriptNativeIntArray::GetOffsetOfWeakFuncRef(), IR::AddrOpnd::New(weakFuncRef, IR::AddrOpndKindDynamicFunctionBodyWeakRef, m_func), instr, isZeroed);
     }
     else if (arrayInfo && arrayInfo->IsNativeFloatArray())
     {
+        multiplier = sizeof(Js::JavascriptArray::MissingItem);
+        allocationBucketsCount = Js::JavascriptNativeFloatArray::AllocationBucketsCount;
+        allocationBuckets = Js::JavascriptNativeFloatArray::allocationBuckets;
         elementSizeOpnd = IR::IntConstOpnd::New(sizeof(Js::JavascriptNativeFloatArray::TElement), TyUint8, func);
         missingItem = GetMissingItemOpnd(IRType::TyVar, func);
         GenerateArrayInfoIsNativeFloatAndNotIntArrayTest(instr, arrayInfo, helperLabel);
@@ -4137,56 +4123,53 @@ Lowerer::GenerateProfiledNewScObjArrayFastPath(IR::Instr *instr, Js::ArrayCallSi
     }
     else
     {
+        multiplier = sizeof(Js::Var);
+        allocationBucketsCount = Js::JavascriptArray::AllocationBucketsCount;
+        allocationBuckets = Js::JavascriptArray::allocationBuckets;
         elementSizeOpnd = IR::IntConstOpnd::New(sizeof(Js::JavascriptArray::TElement), TyUint8, func);
         missingItem = GetMissingItemOpnd(IRType::TyVar, func);
         lengthOpnd = generateRangeCheck();
         headOpnd = GenerateArrayAlloc<Js::JavascriptArray>(instr, lengthOpnd, arrayInfo, &isZeroed, &alignedHeadSegSizeOpnd);
     }
-    //        MOV s13,          0                         ; index
-    //        MOV s14,          16                        ; headSegmentIndex
 
-    //  ; Need to hoist missingItem outsude loop else register allocator might reuse the same register to save the hoisted missingItem
-    //  ; as that of loopIndex since missingItem is not marked live on back edge.
-    //        MOV s15,          0x80000002                ; missingItem
+    uint const offsetStart = sizeof(Js::SparseArraySegmentBase);
+    uint missingItemCount = 0;
+    uint missingItemInitializedSoFar = 0;
+    IRType missingItemType = (arrayInfo && arrayInfo->IsNativeIntArray()) ? IRType::TyInt32 : IRType::TyVar;
 
-    //$LoopTop:
-    //        CMP s13,          alignedHeadSegSizeOpnd
-    //        JGE $done
-    //        MOV [s12+s14],    0x80000002                ; Save missing element
-    //        s14               = ADD s14, 4              ; headSegmentIndex += 4. NOTE: value 4 could be different for different type of arrays
-    //        s13               = ADD s13, 1              ; index ++
-    //        JMP $LoopTop
-    //
-    //$done
+    // Js::JavascriptArray::MissingItem is a Var, so it may be 32-bit or 64 bit.
+    uint sizeFactor = (arrayInfo && arrayInfo->IsNativeFloatArray()) ? (sizeof(double) / sizeof(Js::JavascriptArray::MissingItem)) : 1;
+    for (uint8 i = 0;i < allocationBucketsCount;i++)
+    {
+        
+        missingItemCount = allocationBuckets[i][1] * sizeFactor;
+        
+        if (i > 0)
+        {
+            // Reduce missingItemCount we have already set so far
+            missingItemCount -= missingItemInitializedSoFar;
+        }
 
-    IR::RegOpnd * indexOpnd = IR::RegOpnd::New(TyUint32, func);
-    IR::RegOpnd * headSegIndexOpnd = IR::RegOpnd::New(TyUint32, func); //REVIEW: Should this be TyUint64 for x64?
-    IR::RegOpnd * missingValueOpnd = IR::RegOpnd::New(missingItem->GetType(), func);
+        // Generate array initialization with MissingItem
+        for (uint j = 0;j < missingItemCount;j++)
+        {
+            GenerateMemInit(headOpnd, offsetStart + j * multiplier, GetMissingItemOpnd(missingItemType, func), instr, isZeroed);
+        }
 
-    InsertMove(indexOpnd, IR::IntConstOpnd::New(0, TyUint8, func, true), instr);
-    InsertMove(headSegIndexOpnd, IR::IntConstOpnd::New(sizeof(Js::SparseArraySegmentBase), TyUint16, func, true), instr);
-    InsertMove(missingValueOpnd, missingItem, instr);
+        //  CMP  arrayLen, currentBucket
+        //  JG   $checkNextBucket
+        if (i != (allocationBucketsCount - 1))
+        {
+            Lowerer::InsertCompare(lengthOpnd, IR::IntConstOpnd::New(allocationBuckets[i][0], TyUint32, func), instr);
 
-    IR::LabelInstr * loopTopInstr = IR::LabelInstr::New(Js::OpCode::Label, func);
-    instr->InsertBefore(loopTopInstr);
+            Lowerer::InsertBranch(Js::OpCode::BrLe_A, arrayInitDone, instr);
+        }
+        missingItemInitializedSoFar += missingItemCount;
+    }
 
-    InsertCompareBranch(indexOpnd, alignedHeadSegSizeOpnd, Js::OpCode::BrGe_A, labelDone, instr); // TODO: make this unsigned compare
-    GenerateMemInit(headOpnd, headSegIndexOpnd, missingValueOpnd, instr, true);
-    InsertAdd(false, headSegIndexOpnd, headSegIndexOpnd, elementSizeOpnd, instr);
-    InsertAdd(false, indexOpnd, indexOpnd, IR::IntConstOpnd::New(1, TyUint8, func), instr);
-    InsertBranch(Js::OpCode::Br, loopTopInstr, instr);
-
-    loopTopInstr->m_isLoopTop = true;
-    Loop *loop = JitAnew(func->m_alloc, Loop, func->m_alloc, this->m_func);
-    loopTopInstr->SetLoop(loop);
-    loop->SetLoopTopInstr(loopTopInstr);
-    loop->regAlloc.liveOnBackEdgeSyms = JitAnew(func->m_alloc, BVSparse<JitArenaAllocator>, func->m_alloc);
-    loop->regAlloc.liveOnBackEdgeSyms->Set(headOpnd->m_sym->m_id);
-    loop->regAlloc.liveOnBackEdgeSyms->Set(indexOpnd->m_sym->m_id);
-    loop->regAlloc.liveOnBackEdgeSyms->Set(headSegIndexOpnd->m_sym->m_id);
-    loop->regAlloc.liveOnBackEdgeSyms->Set(missingValueOpnd->m_sym->m_id);
-    loop->regAlloc.liveOnBackEdgeSyms->Set(alignedHeadSegSizeOpnd->AsRegOpnd()->m_sym->m_id);
-
+    instr->InsertBefore(arrayInitDone);
+ 
+    Lowerer::InsertBranch(Js::OpCode::Br, labelDone, instr);
     instr->InsertBefore(helperLabel);
 }
 
