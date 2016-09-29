@@ -1671,12 +1671,12 @@ SECOND_PASS:
     void JavascriptArray::EnsureCalculationOfAllocationBuckets()
     {
         // If allocation size for current ArrayType has already calculated, no need to recalculate it.
-        bool determineAllocationSize = ArrayType::allocationBuckets[0][1] == 0;
+        bool determineAllocationSize = ElementsCountToInitialize(ArrayType, 0) == 0;
         if (determineAllocationSize)
         {
             for (uint8 i = 0;i < ArrayType::AllocationBucketsCount;i++)
             {
-                ArrayType::allocationBuckets[i][2] = (uint)DetermineAllocationSize<ArrayType, 0>(ArrayType::allocationBuckets[i][0], nullptr, &ArrayType::allocationBuckets[i][1]);
+                ArrayAllocationSize(ArrayType, i) = (uint)DetermineAllocationSize<ArrayType, 0>(ArrayAllocationBucket(ArrayType, i), nullptr, &ElementsCountToInitialize(ArrayType, i));
             }
         }
         return;
@@ -1692,25 +1692,25 @@ SECOND_PASS:
         
         EnsureCalculationOfAllocationBuckets<ArrayType>();
 
-        if (inlineElementSlots >= 0 && inlineElementSlots <= ArrayType::allocationBuckets[bucketsCount - 1][1])
+        if (inlineElementSlots >= 0 && inlineElementSlots <= ArrayAllocationBucket(ArrayType, bucketsCount - 1))
         {
             for (uint8 i = 0;i < bucketsCount;i++)
             {
                 // Ensure we already have allocation size calculated and within range
-                Assert(ArrayType::allocationBuckets[i][1] > 0 && ArrayType::allocationBuckets[i][1] <= ArrayType::allocationBuckets[bucketsCount - 1][1]);
-                Assert(ArrayType::allocationBuckets[i][2] > 0 && ArrayType::allocationBuckets[i][2] <= ArrayType::allocationBuckets[bucketsCount - 1][2]);
+                Assert(ElementsCountToInitialize(ArrayType, i) > 0 && ElementsCountToInitialize(ArrayType, i) <= ElementsCountToInitialize(ArrayType, bucketsCount - 1));
+                Assert(ArrayAllocationSize(ArrayType, i) > 0 && ArrayAllocationSize(ArrayType, i) <= ArrayAllocationSize(ArrayType, bucketsCount - 1));
 
-                if (inlineElementSlots <= ArrayType::allocationBuckets[i][0])
+                if (inlineElementSlots <= ArrayAllocationBucket(ArrayType, i))
                 {
                     if (alignedInlineElementSlotsRef)
                     {
-                        *alignedInlineElementSlotsRef = ArrayType::allocationBuckets[i][1];
+                        *alignedInlineElementSlotsRef = ElementsCountToInitialize(ArrayType, i);
                     }
                     if (allocationPlusSizeRef)
                     {
-                        *allocationPlusSizeRef = ArrayType::allocationBuckets[i][2] - sizeof(ArrayType);
+                        *allocationPlusSizeRef = ArrayAllocationSize(ArrayType, i) - sizeof(ArrayType);
                     }
-                    return ArrayType::allocationBuckets[i][2];
+                    return ArrayAllocationSize(ArrayType, i);
                 }
             }
         }

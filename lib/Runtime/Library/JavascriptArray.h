@@ -6,6 +6,11 @@
 #pragma once
 
 #define ARRAY_CROSSOVER_FOR_VALIDATE 0
+#define ArrayAllocationBucket(ArrayType, index) ArrayType::allocationBuckets[index][0]
+#define ElementsCountToInitialize(ArrayType, index) ArrayType::allocationBuckets[index][1]
+#define ArrayAllocationSize(ArrayType, index) ArrayType::allocationBuckets[index][2]
+#define Get_ArrayAllocationBucket(allocationbucket, index) allocationbucket[index][0]
+#define Get_ElementsCountToInitialize(allocationbucket, index) allocationbucket[index][1]
 
 namespace Js
 {
@@ -118,10 +123,6 @@ namespace Js
         static ushort const MergeSegmentsLengthHeuristics = 128; // If the length is less than MergeSegmentsLengthHeuristics then try to merge the segments
         static uint64 const FiftyThirdPowerOfTwoMinusOne = 0x1FFFFFFFFFFFFF;  // 2^53-1
 
-        // col0 : allocation bucket
-        // col1 : No. of missing items to set during initialization depending on bucket. 
-        // col2 : allocation size for elements in given bucket.
-        // col1 and col2 is calculated at runtime.
 #if defined(_M_X64_OR_ARM64)
         static const uint8 AllocationBucketsCount = 3;
 #else
@@ -934,10 +935,6 @@ namespace Js
 
         typedef int32 TElement;
 
-        // col0 : allocation bucket
-        // col1 : No. of missing items to set during initialization depending on bucket. 
-        // col2 : allocation size for elements in given bucket.
-        // col1 and col2 is calculated at runtime
         static const uint8 AllocationBucketsCount = 3;
         static uint allocationBuckets[][3];
         static const int32 MissingItem;
@@ -1077,10 +1074,6 @@ namespace Js
 
         typedef double TElement;
 
-        // col0 : allocation bucket
-        // col1 : No. of missing items to set during initialization depending on bucket. 
-        // col2 : allocation size for elements in given bucket.
-        // col1 and col2 is calculated at runtime
         static const uint8 AllocationBucketsCount = 3;
         static uint allocationBuckets[][3];
         static const double MissingItem;

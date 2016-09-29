@@ -3892,24 +3892,24 @@ Lowerer::GenerateArrayAlloc(IR::Instr *instr, IR::Opnd * arrayLenOpnd, Js::Array
 
     for (uint8 i = 0;i < bucketsCount;i++)
     {
-        // If we are here, we must have already calculated the allocation for this ArrayType
-        Assert(ArrayType::allocationBuckets[i][1] > 0 && ArrayType::allocationBuckets[i][1] <= ArrayType::allocationBuckets[bucketsCount - 1][1]);
-        Assert(ArrayType::allocationBuckets[i][2] > 0 && ArrayType::allocationBuckets[i][2] <= ArrayType::allocationBuckets[bucketsCount - 1][2]);
+        // Ensure we already have allocation size calculated and within range
+        Assert(ElementsCountToInitialize(ArrayType, i) > 0 && ElementsCountToInitialize(ArrayType, i) <= ElementsCountToInitialize(ArrayType, bucketsCount - 1));
+        Assert(ArrayAllocationSize(ArrayType, i) > 0 && ArrayAllocationSize(ArrayType, i) <= ArrayAllocationSize(ArrayType, bucketsCount - 1));
 
         //  CMP  arrayLen, currentBucket
         //  JG   $checkNextBucket
         if (i != (bucketsCount - 1))
         {
-            Lowerer::InsertCompare(arrayLenOpnd, IR::IntConstOpnd::New((uint16)ArrayType::allocationBuckets[i][0], TyUint32, func), instr);
+            Lowerer::InsertCompare(arrayLenOpnd, IR::IntConstOpnd::New((uint16)ArrayAllocationBucket(ArrayType, i), TyUint32, func), instr);
             
             skipToNextBucket = IR::LabelInstr::New(Js::OpCode::Label, func);
             Lowerer::InsertBranch(Js::OpCode::BrGt_A, skipToNextBucket, instr);
         }
 
-        //  MOV  $arrayAllocSize, <const1>
-        //  MOV  $arrayAlignedSize,  <const2>
-        Lowerer::InsertMove(arraySizeOpnd, IR::IntConstOpnd::New((uint16)ArrayType::allocationBuckets[i][1], TyUint32, func), instr);
-        Lowerer::InsertMove(alignedArrayAllocSizeOpnd, IR::IntConstOpnd::New((uint16)ArrayType::allocationBuckets[i][2], TyUint32, func), instr);
+        //  MOV  $arrayAlignedSize,  <const1>
+        //  MOV  $arrayAllocSize, <const2>
+        Lowerer::InsertMove(arraySizeOpnd, IR::IntConstOpnd::New((uint16)ElementsCountToInitialize(ArrayType, i), TyUint32, func), instr);
+        Lowerer::InsertMove(alignedArrayAllocSizeOpnd, IR::IntConstOpnd::New((uint16)ArrayAllocationSize(ArrayType, i), TyUint32, func), instr);
 
         //  JMP  $doneCalculatingAllocSize
         if (i != (bucketsCount - 1))
@@ -4117,7 +4117,7 @@ Lowerer::GenerateProfiledNewScObjArrayFastPath(IR::Instr *instr, Js::ArrayCallSi
 
     for (uint8 i = 0;i < allocationBucketsCount;i++)
     {
-        missingItemCount = allocationBuckets[i][1] * sizeFactor;
+        missingItemCount = Get_ElementsCountToInitialize(allocationBuckets, i) * sizeFactor;
         
         if (i > 0)
         {
@@ -4136,7 +4136,7 @@ Lowerer::GenerateProfiledNewScObjArrayFastPath(IR::Instr *instr, Js::ArrayCallSi
         //  JG   $checkNextBucket
         if (i != (allocationBucketsCount - 1))
         {
-            Lowerer::InsertCompare(lengthOpnd, IR::IntConstOpnd::New(allocationBuckets[i][0], TyUint32, func), instr);
+            Lowerer::InsertCompare(lengthOpnd, IR::IntConstOpnd::New(Get_ArrayAllocationBucket(allocationBuckets, i), TyUint32, func), instr);
 
             Lowerer::InsertBranch(Js::OpCode::BrLe_A, arrayInitDone, instr);
         }

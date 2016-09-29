@@ -14,6 +14,10 @@ namespace Js
     static const char EmptySegmentData[sizeof(SparseArraySegmentBase)] = {0};
     const SparseArraySegmentBase *JavascriptArray::EmptySegment = (SparseArraySegmentBase *)&EmptySegmentData;
 
+    // col0 : allocation bucket
+    // col1 : No. of missing items to set during initialization depending on bucket. 
+    // col2 : allocation size for elements in given bucket.
+    // col1 and col2 is calculated at runtime
     uint JavascriptNativeFloatArray::allocationBuckets[][3] =
     {
         { 3, 0, 0 },    // allocate space for 3 elements for array of length 0,1,2,3
