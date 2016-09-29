@@ -814,6 +814,8 @@ namespace Js
 
     public:
         template<class T, uint InlinePropertySlots> static size_t DetermineAllocationSize(const uint inlineElementSlots, size_t *const allocationPlusSizeRef = nullptr, uint *const alignedInlineElementSlotsRef = nullptr);
+        template<class ArrayType, uint InlinePropertySlots> static size_t DetermineAllocationSizeForArrayObjects(const uint inlineElementSlots, size_t *const allocationPlusSizeRef = nullptr, uint *const alignedInlineElementSlotsRef = nullptr);
+        template<class ArrayType> static void EnsureCalculationOfAllocationBuckets();
         template<class T, uint InlinePropertySlots> static uint DetermineAvailableInlineElementSlots(const size_t allocationSize, bool *const isSufficientSpaceForInlinePropertySlotsRef);
         template<class T, uint ConstInlinePropertySlots, bool UseDynamicInlinePropertySlots> static SparseArraySegment<typename T::TElement> *DetermineInlineHeadSegmentPointer(T *const array);
 

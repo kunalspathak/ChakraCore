@@ -157,8 +157,8 @@ namespace Js
     {
         size_t allocationPlusSize;
         uint alignedInlineElementSlots;
-        DetermineAllocationSize<className, 0>(
-            SparseArraySegmentBase::SMALL_CHUNK_SIZE,
+        DetermineAllocationSizeForArrayObjects<className, 0>(
+            0,
             &allocationPlusSize,
             &alignedInlineElementSlots);
         return RecyclerNewPlusZ(recycler, allocationPlusSize, className, type, alignedInlineElementSlots);
@@ -180,18 +180,8 @@ namespace Js
         size_t allocationPlusSize;
         uint alignedInlineElementSlots;
         className* array;
-        if (!length) // zero length - use default head chunk size
-        {
-            DetermineAllocationSize<className, inlineSlots>(
-                SparseArraySegmentBase::HEAD_CHUNK_SIZE,
-                &allocationPlusSize,
-                &alignedInlineElementSlots);
-        }
-        else //Small array
-        {
-            Assert(length <= SparseArraySegmentBase::HEAD_CHUNK_SIZE);
-            DetermineAllocationSize<className, inlineSlots>(length, &allocationPlusSize, &alignedInlineElementSlots);
-        }
+
+        DetermineAllocationSizeForArrayObjects<className, inlineSlots>(length, &allocationPlusSize, &alignedInlineElementSlots);
 
         array = RecyclerNewPlusZ(recycler, allocationPlusSize, className, length, arrayType);
         SparseArraySegment<unitType> *head =
@@ -1676,6 +1666,58 @@ SECOND_PASS:
 
         return totalSize;
     }
+
+    template<class ArrayType> 
+    void JavascriptArray::EnsureCalculationOfAllocationBuckets()
+    {
+        // If allocation size for current ArrayType has already calculated, no need to recalculate it.
+        bool determineAllocationSize = ArrayType::allocationBuckets[0][1] == 0;
+        if (determineAllocationSize)
+        {
+            for (uint8 i = 0;i < ArrayType::AllocationBucketsCount;i++)
+            {
+                ArrayType::allocationBuckets[i][2] = (uint)DetermineAllocationSize<ArrayType, 0>(ArrayType::allocationBuckets[i][0], nullptr, &ArrayType::allocationBuckets[i][1]);
+            }
+        }
+        return;
+    }
+
+    template<class ArrayType, uint InlinePropertySlots>
+    inline size_t JavascriptArray::DetermineAllocationSizeForArrayObjects(
+        const uint inlineElementSlots,
+        size_t *const allocationPlusSizeRef,
+        uint *const alignedInlineElementSlotsRef)
+    {
+        uint8 bucketsCount = ArrayType::AllocationBucketsCount;
+        
+        EnsureCalculationOfAllocationBuckets<ArrayType>();
+
+        if (inlineElementSlots >= 0 && inlineElementSlots <= ArrayType::allocationBuckets[bucketsCount - 1][1])
+        {
+            for (uint8 i = 0;i < bucketsCount;i++)
+            {
+                // Ensure we already have allocation size calculated and within range
+                Assert(ArrayType::allocationBuckets[i][1] > 0 && ArrayType::allocationBuckets[i][1] <= ArrayType::allocationBuckets[bucketsCount - 1][1]);
+                Assert(ArrayType::allocationBuckets[i][2] > 0 && ArrayType::allocationBuckets[i][2] <= ArrayType::allocationBuckets[bucketsCount - 1][2]);
+
+                if (inlineElementSlots <= ArrayType::allocationBuckets[i][0])
+                {
+                    if (alignedInlineElementSlotsRef)
+                    {
+                        *alignedInlineElementSlotsRef = ArrayType::allocationBuckets[i][1];
+                    }
+                    if (allocationPlusSizeRef)
+                    {
+                        *allocationPlusSizeRef = ArrayType::allocationBuckets[i][2] - sizeof(ArrayType);
+                    }
+                    return ArrayType::allocationBuckets[i][2];
+                }
+            }
+        }
+
+        return DetermineAllocationSize<ArrayType, InlinePropertySlots>(inlineElementSlots, allocationPlusSizeRef, alignedInlineElementSlotsRef);
+    }
+    
 
     template<class T, uint InlinePropertySlots>
     inline uint JavascriptArray::DetermineAvailableInlineElementSlots(

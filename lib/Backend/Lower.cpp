@@ -3780,8 +3780,15 @@ Lowerer::GenerateArrayAlloc(IR::Instr *instr, uint32 * psize, Js::ArrayCallSiteI
 
     if (ArrayType::HasInlineHeadSegment(count))
     {
-        uint32 allocCount = count == 0 ? Js::SparseArraySegmentBase::SMALL_CHUNK_SIZE : count;
-        arrayAllocSize = Js::JavascriptArray::DetermineAllocationSize<ArrayType, 0>(allocCount, nullptr, &alignedHeadSegmentSize);
+        if (isArrayObjCtor)
+        {
+            arrayAllocSize = Js::JavascriptArray::DetermineAllocationSizeForArrayObjects<ArrayType, 0>(count, nullptr, &alignedHeadSegmentSize);
+        }
+        else
+        {
+            uint32 allocCount = count == 0 ? Js::SparseArraySegmentBase::SMALL_CHUNK_SIZE : count;
+            arrayAllocSize = Js::JavascriptArray::DetermineAllocationSize<ArrayType, 0>(allocCount, nullptr, &alignedHeadSegmentSize);
+        }
         leaHeadInstr = IR::Instr::New(Js::OpCode::LEA, headOpnd,
             IR::IndirOpnd::New(dstOpnd, sizeof(ArrayType), TyMachPtr, func), func);
         isHeadSegmentZeroed = true;
@@ -3881,22 +3888,13 @@ Lowerer::GenerateArrayAlloc(IR::Instr *instr, IR::Opnd * arrayLenOpnd, Js::Array
     IR::LabelInstr * skipToNextBucket = nullptr;
     uint8 bucketsCount = ArrayType::AllocationBucketsCount;
 
-    // If allocation size for current ArrayType has already calculated, no need to recalculate it.
-    bool determineAllocationSize = ArrayType::allocationBuckets[0][1] == 0;
+    Js::JavascriptArray::EnsureCalculationOfAllocationBuckets<ArrayType>();
+
     for (uint8 i = 0;i < bucketsCount;i++)
     {
-        // Check if we have already calculated allocSize 
-        if (determineAllocationSize)
-        {
-            ArrayType::allocationBuckets[i][2] = (uint)Js::JavascriptArray::DetermineAllocationSize<ArrayType, 0>(ArrayType::allocationBuckets[i][0], nullptr, &ArrayType::allocationBuckets[i][1]);
-        }
-        else
-        {
-            // Ensure we already have allocation size calculated and within range
-            Assert(ArrayType::allocationBuckets[i][1] > 0 && ArrayType::allocationBuckets[i][1] <= ArrayType::allocationBuckets[bucketsCount - 1][1]);
-            Assert(ArrayType::allocationBuckets[i][2] > 0 && ArrayType::allocationBuckets[i][2] <= ArrayType::allocationBuckets[bucketsCount - 1][2]);
-        }
-        
+        // If we are here, we must have already calculated the allocation for this ArrayType
+        Assert(ArrayType::allocationBuckets[i][1] > 0 && ArrayType::allocationBuckets[i][1] <= ArrayType::allocationBuckets[bucketsCount - 1][1]);
+        Assert(ArrayType::allocationBuckets[i][2] > 0 && ArrayType::allocationBuckets[i][2] <= ArrayType::allocationBuckets[bucketsCount - 1][2]);
 
         //  CMP  arrayLen, currentBucket
         //  JG   $checkNextBucket
