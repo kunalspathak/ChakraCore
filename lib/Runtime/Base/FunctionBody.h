@@ -194,13 +194,17 @@ namespace Js
     struct EquivalentTypeCache
     {
         Js::Type* types[EQUIVALENT_TYPE_CACHE_SIZE];
+        // Tells recently seen non-shared types that were concluded as not equivalent
+        // If they come again atmost EQUIVALENT_TYPE_CACHE_SIZE attempts, they will get cached
+        Js::Type* recentlySeenNonSharedTypes[EQUIVALENT_TYPE_CACHE_SIZE];
         PropertyGuard *guard;
         TypeEquivalenceRecord record;
         uint nextEvictionVictim;
+        uint nextLRUNonSharedType;
         bool isLoadedFromProto;
         bool hasFixedValue;
 
-        EquivalentTypeCache(): nextEvictionVictim(EQUIVALENT_TYPE_CACHE_SIZE) {}
+        EquivalentTypeCache(): nextEvictionVictim(EQUIVALENT_TYPE_CACHE_SIZE), nextLRUNonSharedType(0) {}
         bool ClearUnusedTypes(Recycler *recycler);
         void SetGuard(PropertyGuard *theGuard) { this->guard = theGuard; }
         void SetIsLoadedFromProto() { this->isLoadedFromProto = true; }

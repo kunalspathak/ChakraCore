@@ -6990,6 +6990,8 @@ Lowerer::GenerateCachedTypeCheck(IR::Instr *instrChk, IR::PropertySymOpnd *prope
             typeCheckGuardOpnd = IR::AddrOpnd::New((Js::Var)typeCheckGuard, IR::AddrOpndKindDynamicTypeCheckGuard, func, true);
         }
 
+        this->m_lowererMD.LoadHelperArgument(instrChk, IR::IntConstOpnd::New(func->GetSourceContextId(), TyUint16, func, true));
+        this->m_lowererMD.LoadHelperArgument(instrChk, IR::IntConstOpnd::New(func->GetLocalFunctionId(), TyUint16, func, true));
         this->m_lowererMD.LoadHelperArgument(instrChk, typeCheckGuardOpnd);
         this->m_lowererMD.LoadHelperArgument(instrChk, typeOpnd);
 

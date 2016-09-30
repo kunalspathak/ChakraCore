@@ -8218,7 +8218,7 @@ CommonNumber:
         return entry->slotIndex == Constants::NoSlot && !entry->mustBeWritable;
     }
 
-    bool JavascriptOperators::CheckIfTypeIsEquivalent(Type* type, JitEquivalentTypeGuard* guard)
+    bool JavascriptOperators::CheckIfTypeIsEquivalent(Type* type, JitEquivalentTypeGuard* guard, uint16 functionId, uint16 scriptId)
     {
         if (guard->GetValue() == 0)
         {
@@ -8277,6 +8277,7 @@ CommonNumber:
             return true;
         }
 
+
         // If we didn't find the type in the cache, let's check if it's equivalent the slow way, by comparing
         // each of its relevant property slots to its equivalent in one of the cached types.
         // We are making a few assumption that simplify the process:
@@ -8320,38 +8321,80 @@ CommonNumber:
 
         // Before checking for equivalence, track existing cached non-shared types
         DynamicType * dynamicType = (type && DynamicType::Is(type->GetTypeId())) ? static_cast<DynamicType*>(type) : nullptr;
+
+
+        //if (dynamicType != nullptr)
+        //{
+        //    printf("<%u.%u> Guard : 0x%p, Value : 0x%p, Type : 0x%p (%s), evictionVictim : %d\n", scriptId, functionId, guard, (Type*)guard->GetValue(), type, dynamicType->GetIsShared() ? "shared" : "non-shared", cache->nextEvictionVictim);
+        //    for (int i = 0; i < EQUIVALENT_TYPE_CACHE_SIZE;i++)
+        //    {
+        //        if (equivTypes[i] == nullptr) break;
+        //        if (DynamicType::Is(equivTypes[i]->GetTypeId()))
+        //        {
+        //            if (!(static_cast<DynamicType*>(equivTypes[i]))->GetIsShared())
+        //            {
+        //                printf("\t0x%p (non-shared).\n", equivTypes[i]);
+        //            }
+        //            else
+        //            {
+        //                printf("\t0x%p (shared).\n", equivTypes[i]);
+        //            }
+        //        }
+        //    }
+        //    fflush(stdout);
+        //}
+
+        
         bool isEquivTypesCacheFull = equivTypes[EQUIVALENT_TYPE_CACHE_SIZE - 1] != nullptr;
         int emptySlotIndex = -1;
         int nonSharedTypeSlotIndex = -1;
-        for (int i = 0;i < EQUIVALENT_TYPE_CACHE_SIZE;i++)
+
+        bool wasRecentlySeen = false;
+        if (dynamicType != nullptr &&
+            isEquivTypesCacheFull &&
+            !dynamicType->GetIsShared())
+        {
+            Type** recentlySeenNonSharedTypes = cache->recentlySeenNonSharedTypes; //TODO: Also clean up in pre-sweep callback, so here we can just check upto nullptr
+            if (type == recentlySeenNonSharedTypes[0] || type == recentlySeenNonSharedTypes[1] || type == recentlySeenNonSharedTypes[2] || type == recentlySeenNonSharedTypes[3] ||
+                type == recentlySeenNonSharedTypes[4] || type == recentlySeenNonSharedTypes[5] || type == recentlySeenNonSharedTypes[6] || type == recentlySeenNonSharedTypes[7])
+            {
+                wasRecentlySeen = true;
+            }
+            else
+            {
+                //recentlySeenNonSharedTypes[cache->nextLRUNonSharedType] = type;
+                cache->nextLRUNonSharedType = (cache->nextLRUNonSharedType + 1) & (EQUIVALENT_TYPE_CACHE_SIZE - 1);
+                return false;
+            }
+        }
+
+        // TODO:
+        // 1. Do this only if cache is full
+        int startIndex = cache->nextEvictionVictim == EQUIVALENT_TYPE_CACHE_SIZE ? 0 : cache->nextEvictionVictim;
+        for (int i = (startIndex + 1) & (EQUIVALENT_TYPE_CACHE_SIZE - 1);i != startIndex;i = (i + 1) & (EQUIVALENT_TYPE_CACHE_SIZE - 1))
         {
             // Track presence of cached non-shared type if cache is full
             if (isEquivTypesCacheFull)
             {
                 if (DynamicType::Is(equivTypes[i]->GetTypeId()) &&
-                    nonSharedTypeSlotIndex == -1 &&
                     !(static_cast<DynamicType*>(equivTypes[i]))->GetIsShared())
                 {
                     nonSharedTypeSlotIndex = i;
+                    cache->nextEvictionVictim = (cache->nextEvictionVictim + 1) & (EQUIVALENT_TYPE_CACHE_SIZE - 1);
+                    break;
                 }
             }
-            // Otherwise get the next available empty index
-            else if (equivTypes[i] == nullptr)
-            {
-                emptySlotIndex = i;
-                break;
-            };
         }
 
         // If we get non-shared type while cache is full and we don't have any non-shared type to evict
         // consider this type as non-equivalent
-        if (dynamicType != nullptr &&
-            isEquivTypesCacheFull &&
-            !dynamicType->GetIsShared() &&
-            nonSharedTypeSlotIndex == -1)
-        {
-            return false;
-        }
+        //if (dynamicType != nullptr &&
+        //    isEquivTypesCacheFull &&
+        //    !dynamicType->GetIsShared() &&
+        //    nonSharedTypeSlotIndex == -1)
+        //{
+        //    return false;
+        //}
 
         // CONSIDER (EquivObjTypeSpec): Impose a limit on the number of properties guarded by an equivalent type check.
         // The trick is where in the glob opt to make the cut off. Perhaps in the forward pass we could track the number of
@@ -8380,7 +8423,20 @@ CommonNumber:
             return false;
         }
 
-        AssertMsg(!isEquivTypesCacheFull || !dynamicType || dynamicType->GetIsShared() || nonSharedTypeSlotIndex > -1, "If equiv cache is full, then this should be sharedType or we will evict non-shared type.");
+        // TODO: 
+        // 1. If cache is full, don't do it because we already have space
+        // 2. If there is non-shared type to evict, don't do it because we already know what type to evict
+
+        for (int i = 0;i < EQUIVALENT_TYPE_CACHE_SIZE;i++)
+        {
+            if (equivTypes[i] == nullptr)
+            {
+                emptySlotIndex = i;
+                break;
+            };
+        }
+
+        //AssertMsg(!isEquivTypesCacheFull || !dynamicType || dynamicType->GetIsShared() || nonSharedTypeSlotIndex > -1, "If equiv cache is full, then this should be sharedType or we will evict non-shared type.");
 
         // If cache is full, then this is definitely a sharedType, so evict non-shared type.
         // Else evict next empty slot (only applicable for DynamicTypes)
@@ -8389,6 +8445,7 @@ CommonNumber:
         // We have some empty slots, let us use those first
         if (emptySlotIndex != -1)
         {
+            Assert(emptySlotIndex < EQUIVALENT_TYPE_CACHE_SIZE);
             if (PHASE_TRACE1(Js::EquivObjTypeSpecPhase))
             {
                 Output::Print(_u("EquivObjTypeSpec: Saving type in unused slot of equiv types cache. \n"));
