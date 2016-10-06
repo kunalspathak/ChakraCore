@@ -496,7 +496,14 @@ namespace Js
         // to update our shrinking logic (see PathTypeHandlerBase::ShrinkSlotAndInlineSlotCapacity).
         Assert(newTypeHandler->GetIsInlineSlotCapacityLocked());
         newTypeHandler->SetPropertyTypes(PropertyTypesWritableDataOnly | PropertyTypesWritableDataOnlyDetection, this->GetPropertyTypes());
+        DynamicType* previousType = instance->GetDynamicType();
         newTypeHandler->SetInstanceTypeHandler(instance);
+        if (previousType->TrackChangeType && previousType != instance->GetDynamicType())
+        {
+            printf("[0x%p] SimpleDictionaryTypeHandlerBase::ConvertToTypeHandler.\n", instance);
+            fflush(stdout);
+            instance->GetDynamicType()->TrackChangeType = true;
+        }
         // We assumed that we don't need to transfer used as fixed bits unless we are a prototype, which is only valid if we also changed the type.
         Assert(transferUsedAsFixed || (instance->GetType() != oldType && oldType->GetTypeId() != TypeIds_GlobalObject));
         Assert(!newTypeHandler->HasSingletonInstance() || !instance->HasSharedType());

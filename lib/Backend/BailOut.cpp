@@ -2194,7 +2194,7 @@ void BailOutRecord::ScheduleFunctionCodeGen(Js::ScriptFunction * function, Js::S
         }
         else
         {
-            executeFunction->GetDynamicProfileInfo()->IncRejitCount();
+            executeFunction->GetDynamicProfileInfo()->IncRejitCount(); 
         }
     }
 

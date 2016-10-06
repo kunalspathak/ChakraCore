@@ -288,7 +288,14 @@ namespace Js
             // If we're adding a property to an inlined slot, we should never need to adjust auxiliary slot array size.
             Assert(newAuxSlotCapacity == 0);
 
+            if (dynamicObject->type->TrackChangeType)
+            {
+                printf("[0x%p] TrySetProperty@294.\n", dynamicObject);
+                fflush(stdout);
+                typeWithProperty->TrackChangeType = true;
+            }
             dynamicObject->type = typeWithProperty;
+            
 
             Assert(isRoot || object->GetPropertyIndex(propertyId) == DynamicObject::FromVar(object)->GetTypeHandler()->InlineOrAuxSlotIndexToPropertyIndex(propertyIndex, true));
             Assert(!isRoot || RootObjectBase::FromVar(object)->GetRootPropertyIndex(propertyId) == DynamicObject::FromVar(object)->GetTypeHandler()->InlineOrAuxSlotIndexToPropertyIndex(propertyIndex, true));
@@ -330,6 +337,12 @@ namespace Js
                     newAuxSlotCapacity);
             }
 
+            if (dynamicObject->type->TrackChangeType)
+            {
+                printf("[0x%p] TrySetProperty@340.\n", dynamicObject);
+                fflush(stdout);
+                typeWithProperty->TrackChangeType = true;
+            }
             dynamicObject->type = typeWithProperty;
 
             Assert(isRoot || object->GetPropertyIndex(propertyId) == DynamicObject::FromVar(object)->GetTypeHandler()->InlineOrAuxSlotIndexToPropertyIndex(propertyIndex, false));

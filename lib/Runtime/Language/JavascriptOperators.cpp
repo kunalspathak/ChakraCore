@@ -8218,10 +8218,63 @@ CommonNumber:
         return entry->slotIndex == Constants::NoSlot && !entry->mustBeWritable;
     }
 
-    bool JavascriptOperators::CheckIfTypeIsEquivalent(Type* type, JitEquivalentTypeGuard* guard)
+    bool JavascriptOperators::CheckIfTypeIsEquivalent(Type* type, JitEquivalentTypeGuard* guard, uint16 functionId, uint16 scriptId)
     {
+        EquivalentTypeCache* cache = guard->GetCache();
+        DynamicType * dynamicType = (type && DynamicType::Is(type->GetTypeId())) ? static_cast<DynamicType*>(type) : nullptr;
+
+        bool doLogging = PHASE_TRACE1(EquivTypeLoggingPhase);//(scriptId == 11 && functionId == 6) || (scriptId == 20 && functionId == 52);
+        auto logger = [&](bool result, const char * msg)
+        {
+            int typeHandlerType = -1;
+            DynamicTypeHandler * typeHandler = dynamicType->GetTypeHandler();
+            if (typeHandler->IsDeferredTypeHandler())
+            {
+                typeHandlerType = 0;
+            }
+            else if (typeHandler->IsPathTypeHandler())
+            {
+                typeHandlerType = 1;
+            }
+            else if (typeHandler->IsDictionaryTypeHandler())
+            {
+                typeHandlerType = 2;
+            }
+            else if (typeHandler->IsSimpleDictionaryTypeHandler())
+            {
+                typeHandlerType = 3;
+            }
+            else
+            {
+                typeHandlerType = 4;
+            }
+            printf("Got type 0x%p (%s) scriptId = %u, functionId = %u. Result = %d, Properties = ",
+                   type,
+                   typeHandlerType == -1 ? "blah" : (typeHandlerType == 0 ? "deferred" :
+                                                         (typeHandlerType == 1 ? "path" :
+                                                          (typeHandlerType == 2 ? "dictionary" :
+                                                           (typeHandlerType == 3 ? "simpleDictionary" : "not sure"))))
+                   , scriptId, functionId, result);
+
+            uint propertyCount = cache->record.propertyCount;
+            Js::EquivalentPropertyEntry* properties = cache->record.properties;
+            for (uint pi = 0; pi < propertyCount; pi++)
+            {
+                const EquivalentPropertyEntry* refInfo = &properties[pi];
+                const PropertyRecord* propertyRecord =
+                    dynamicType->GetScriptContext()->GetPropertyName(refInfo->propertyId);
+                printf("%S, ", propertyRecord->GetBuffer());
+            }
+            printf("%s\n", msg);
+            fflush(stdout);
+        };
+
         if (guard->GetValue() == 0)
         {
+            if (doLogging)
+            {
+                logger(false, "guard's value is null");
+            }
             return false;
         }
 
@@ -8236,7 +8289,7 @@ CommonNumber:
         // CONSIDER : Add stats on how often the cache hits, and simply force bailout if
         // the efficacy is too low.
 
-        EquivalentTypeCache* cache = guard->GetCache();
+        
         // CONSIDER : Consider emitting o.type == equivTypes[hash(o.type)] in machine code before calling
         // this helper, particularly if we want to handle polymorphism with frequently changing types.
         Assert(EQUIVALENT_TYPE_CACHE_SIZE == 8);
@@ -8257,6 +8310,10 @@ CommonNumber:
                 }
             }
 #endif
+            if (doLogging)
+            {
+                logger(false, "equivTypes[0] is nullptr");
+            }
             return false;
         }
 
@@ -8274,8 +8331,13 @@ CommonNumber:
             }
 #endif
             guard->SetTypeAddr((intptr_t)type);
+            if (doLogging)
+            {
+                logger(false, "type present in equivTypes");
+            }
             return true;
         }
+
 
         // If we didn't find the type in the cache, let's check if it's equivalent the slow way, by comparing
         // each of its relevant property slots to its equivalent in one of the cached types.
@@ -8296,7 +8358,10 @@ CommonNumber:
                     guard->GetObjTypeSpecFldId(), type, refType, type->GetPrototype(), refType->GetPrototype());
                 Output::Flush();
             }
-
+            if (doLogging)
+            {
+                logger(false, "prototype mismatch.");
+            }
             return false;
         }
 
@@ -8309,7 +8374,10 @@ CommonNumber:
                     guard->GetObjTypeSpecFldId(), type, refType, type->GetPrototype(), refType->GetPrototype());
                 Output::Flush();
             }
-
+            if (doLogging)
+            {
+                logger(false, "typeid mismatch.");
+            }
             return false;
         }
 
@@ -8319,7 +8387,6 @@ CommonNumber:
         Assert(cache->record.propertyCount > 0);
 
         // Before checking for equivalence, track existing cached non-shared types
-        DynamicType * dynamicType = (type && DynamicType::Is(type->GetTypeId())) ? static_cast<DynamicType*>(type) : nullptr;
         bool isEquivTypesCacheFull = equivTypes[EQUIVALENT_TYPE_CACHE_SIZE - 1] != nullptr;
         int emptySlotIndex = -1;
         int nonSharedTypeSlotIndex = -1;
@@ -8350,6 +8417,10 @@ CommonNumber:
             !dynamicType->GetIsShared() &&
             nonSharedTypeSlotIndex == -1)
         {
+            if (doLogging)
+            {
+                logger(false, "no non-shared type");
+            }
             return false;
         }
 
@@ -8375,8 +8446,13 @@ CommonNumber:
         TracePropertyEquivalenceCheck(guard, type, refType, isEquivalent, failedPropertyIndex);
 #endif
 
+       
         if (!isEquivalent)
         {
+            if (doLogging)
+            {
+                logger(false, "not equivalent");
+            }
             return false;
         }
 
@@ -8425,7 +8501,19 @@ CommonNumber:
             __analysis_assume(index < EQUIVALENT_TYPE_CACHE_SIZE);
             equivTypes[index] = type;
         }
-        
+
+       /* if (dynamicType != nullptr &&
+            isEquivTypesCacheFull &&
+            !dynamicType->GetIsShared())
+        {
+            if (doLogging)
+            {
+                logger(false, "no non-shared type");
+            }
+            return false;
+        }
+        */
+
         // Fixed field checks allow us to assume a specific type ID, but the assumption is only
         // valid if we lock the type. Otherwise, the type ID may change out from under us without
         // evolving the type.
@@ -8438,8 +8526,17 @@ CommonNumber:
             }
         }
 
+
+
         type->SetHasBeenCached();
+
         guard->SetTypeAddr((intptr_t)type);
+
+
+        if (doLogging)
+        {
+            logger(true, "equivalent");
+        }
         return true;
     }
 

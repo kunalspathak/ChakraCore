@@ -79,7 +79,14 @@ namespace Js
         newTypeHandler->SetFlags(IsPrototypeFlag | HasKnownSlot0Flag, this->GetFlags());
         Assert(newTypeHandler->GetIsInlineSlotCapacityLocked());
         newTypeHandler->SetPropertyTypes(PropertyTypesWritableDataOnly | PropertyTypesWritableDataOnlyDetection, this->GetPropertyTypes());
+        DynamicType* previousType = instance->GetDynamicType();
         newTypeHandler->SetInstanceTypeHandler(instance);
+        if (previousType->TrackChangeType && previousType != instance->GetDynamicType())
+        {
+            printf("[0x%p] SimpleTypeHandler::ConvertToNonSharedSimpleType.\n", instance);
+            fflush(stdout);
+            instance->GetDynamicType()->TrackChangeType = true;
+        }
 
         return newTypeHandler;
     }
@@ -119,7 +126,14 @@ namespace Js
         Assert(!newTypeHandler->IsPathTypeHandler());
         Assert(newTypeHandler->GetIsInlineSlotCapacityLocked());
         newTypeHandler->SetPropertyTypes(PropertyTypesWritableDataOnly | PropertyTypesWritableDataOnlyDetection, this->GetPropertyTypes());
+        DynamicType* previousType = instance->GetDynamicType();
         newTypeHandler->SetInstanceTypeHandler(instance);
+        if (previousType->TrackChangeType && previousType != instance->GetDynamicType())
+        {
+            printf("[0x%p] SimpleTypeHandler::ConvertToTypeHandler.\n", instance);
+            fflush(stdout);
+            instance->GetDynamicType()->TrackChangeType = true;
+    }
 
 #if DBG
         // If we marked fields as fixed we had better forced a type transition.

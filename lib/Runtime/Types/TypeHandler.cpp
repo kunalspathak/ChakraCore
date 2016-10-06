@@ -218,7 +218,7 @@ namespace Js
     PropertyIndex DynamicTypeHandler::GetObjectHeaderInlinableSlotCapacity()
     {
         const PropertyIndex maxAllowedSlotCapacity = (sizeof(DynamicObject) - DynamicTypeHandler::GetOffsetOfObjectHeaderInlineSlots()) / sizeof(Var);
-        AssertMsg(maxAllowedSlotCapacity == 2, "Today we should be getting 2 with the math here. Change this Assert, if we are changing this logic in the future");
+        //AssertMsg(maxAllowedSlotCapacity == 2, "Today we should be getting 2 with the math here. Change this Assert, if we are changing this logic in the future");
         return maxAllowedSlotCapacity;
     }
 
@@ -305,7 +305,16 @@ namespace Js
     void DynamicTypeHandler::SetPrototype(DynamicObject* instance, RecyclableObject* newPrototype)
     {
         // Force a type transition on the instance to invalidate its inline caches
+        DynamicType* previousType = instance->GetDynamicType();
         DynamicTypeHandler::ResetTypeHandler(instance);
+        
+        if (previousType->TrackChangeType && previousType != instance->GetDynamicType())
+        {
+            printf("[0x%p] DynamicTypeHandler::SetPrototype.\n", instance);
+            fflush(stdout);
+            instance->GetDynamicType()->TrackChangeType = true;
+        }
+
 
         // Put new prototype in place
         instance->GetDynamicType()->SetPrototype(newPrototype);
@@ -702,7 +711,7 @@ namespace Js
         Var *const oldInlineSlots =
             reinterpret_cast<Var *>(
                 reinterpret_cast<uintptr_t>(object) + DynamicTypeHandler::GetOffsetOfObjectHeaderInlineSlots());
-        Assert(DynamicTypeHandler::GetObjectHeaderInlinableSlotCapacity() == 2);
+        //Assert(DynamicTypeHandler::GetObjectHeaderInlinableSlotCapacity() == 2);
         newAuxSlots[0] = oldInlineSlots[oldInlineSlotCapacity - 2];
         newAuxSlots[1] = oldInlineSlots[oldInlineSlotCapacity - 1];
 

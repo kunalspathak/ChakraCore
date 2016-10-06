@@ -311,8 +311,22 @@ namespace Js
         {
             return PathTypeHandlerBase::DeleteItem(instance, indexVal, flags);
         }
-
-        return  ConvertToSimpleDictionaryType(instance, GetPathLength())->DeleteProperty(instance, propertyId, flags);
+        if (instance->GetDynamicType()->TrackChangeType)
+        {
+            PropertyIndex pIndex = GetPropertyIndex(propertyId);
+            printf("%d.\n", pIndex);
+        }
+        // If trying to delete last property, then goto previous type
+        PropertyIndex propertyIndex = GetPropertyIndex(propertyId);
+        if (propertyIndex + 1 == GetPathLength())
+        {
+            instance->ReplaceType(GetPredecessorType());
+            return true; // TODO: return right value;
+        }
+        else
+        {
+            return  ConvertToSimpleDictionaryType(instance, GetPathLength())->DeleteProperty(instance, propertyId, flags);
+        }
     }
 
     BOOL PathTypeHandlerBase::IsFixedProperty(const DynamicObject* instance, PropertyId propertyId)
@@ -514,6 +528,12 @@ namespace Js
 
         instance->EnsureSlots(this->GetSlotCapacity(), nextPath->GetSlotCapacity(), scriptContext, nextType->GetTypeHandler());
 
+        if (instance->type->TrackChangeType)
+        {
+            printf("[0x%p] PromoteType.\n", instance);
+            fflush(stdout);
+            nextType->TrackChangeType = true;
+        }
         ReplaceInstanceType(instance, nextType);
         return nextType;
     }
@@ -633,7 +653,14 @@ namespace Js
         // to update our shrinking logic (see ShrinkSlotAndInlineSlotCapacity).
         Assert(newTypeHandler->GetIsInlineSlotCapacityLocked());
         newTypeHandler->SetPropertyTypes(PropertyTypesWritableDataOnly | PropertyTypesWritableDataOnlyDetection, oldTypeHandler->GetPropertyTypes());
+        DynamicType* previousType = instance->GetDynamicType();
         newTypeHandler->SetInstanceTypeHandler(instance);
+        if (previousType->TrackChangeType && previousType != instance->GetDynamicType())
+        {
+            printf("[0x%p] PathTypeHandlerBase::ConvertToTypeHandler.\n", instance);
+            fflush(stdout);
+            instance->GetDynamicType()->TrackChangeType = true;
+        }
         Assert(!newTypeHandler->HasSingletonInstance() || !instance->HasSharedType());
 
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
@@ -840,7 +867,14 @@ namespace Js
         // to update our shrinking logic (see ShrinkSlotAndInlineSlotCapacity).
         Assert(newTypeHandler->GetIsInlineSlotCapacityLocked());
         newTypeHandler->SetPropertyTypes(PropertyTypesWritableDataOnly | PropertyTypesWritableDataOnlyDetection, oldTypeHandler->GetPropertyTypes());
+        DynamicType* previousType = instance->GetDynamicType();
         newTypeHandler->SetInstanceTypeHandler(instance);
+        if (previousType->TrackChangeType && previousType != instance->GetDynamicType())
+        {
+            printf("[0x%p] PathTypeHandlerBase::ConvertToSimpleDictionary.\n", instance);
+            fflush(stdout);
+            instance->GetDynamicType()->TrackChangeType = true;
+        }
         Assert(!newTypeHandler->HasSingletonInstance() || !instance->HasSharedType());
         // We assumed that we don't need to transfer used as fixed bits unless we are a prototype, which is only valid if we also changed the type.
         Assert(transferUsedAsFixed || (instance->GetType() != oldType && oldType->GetTypeId() != TypeIds_GlobalObject));
@@ -1524,7 +1558,16 @@ namespace Js
         Assert(cachedDynamicType->typeHandler->GetInlineSlotCapacity() == roundedInlineSlotCapacity);
 
         cachedDynamicType->SetPrototype(newPrototype);
+
+        DynamicType* previousType = instance->GetDynamicType();
+        
         instance->ReplaceType(cachedDynamicType);
+        if (previousType->TrackChangeType && previousType != instance->GetDynamicType())
+        {
+            printf("[0x%p] PathTypeHandlerBase::SetPrototype.\n", instance);
+            fflush(stdout);
+            instance->GetDynamicType()->TrackChangeType = true;
+        }
     }
 
     void PathTypeHandlerBase::SetIsPrototype(DynamicObject* instance)

@@ -102,6 +102,66 @@ namespace Js
 
         Var receiver = args.Info.Count > 3 ? args[3] : target;
 
+        bool logging = true;
+
+        if (logging)
+        {
+            const char16* strMessage = JavascriptString::FromVar(receiver)->GetSz();
+            const char16* strProperty = JavascriptString::FromVar(propertyKey)->GetSz();
+            PropertyValueInfo info;
+            Var prototypeValue;
+            RecyclableObject * rObj = RecyclableObject::FromVar(target);
+            DynamicType * dType = DynamicObject::FromVar(target)->GetDynamicType();
+            rObj->GetProperty(rObj, PropertyIds::prototype, &prototypeValue, &info, rObj->GetScriptContext());
+
+            if (lstrcmpiW(strProperty, L"type") == 0)
+            {
+                int typeHandlerType = -1;
+
+                DynamicTypeHandler * typeHandler = dType->GetTypeHandler();
+                if (typeHandler->IsDeferredTypeHandler())
+                {
+                    typeHandlerType = 0;
+                }
+                else if (typeHandler->IsPathTypeHandler())
+                {
+                    typeHandlerType = 1;
+                }
+                else if (typeHandler->IsDictionaryTypeHandler())
+                {
+                    typeHandlerType = 2;
+                }
+                else if (typeHandler->IsSimpleDictionaryTypeHandler())
+                {
+                    typeHandlerType = 3;
+                }
+                else
+                {
+                    typeHandlerType = 4;
+                }
+
+                char16 toPrint[1024];
+                swprintf_s(toPrint, 1024, _u("%s : Object = 0x%p, Type = 0x%p, %S = 0x%p, Prototype = 0x%p, locked = %d, shared = %d"), strMessage,
+                           target,
+                           RecyclableObject::FromVar(target)->GetType(),
+                           typeHandlerType == -1 ? "blah" : (typeHandlerType == 0 ? "deferred" :
+                                                             (typeHandlerType == 1 ? "path" :
+                                                              (typeHandlerType == 2 ? "dictionary" :
+                                                               (typeHandlerType == 3 ? "simpleDictionary" : "not sure")))),
+                           dType->GetTypeHandler(),
+                           prototypeValue,
+                           dType->GetIsLocked(),
+                           dType->GetIsShared());
+                return JavascriptString::NewCopyBuffer(toPrint, (charcount_t)wcslen(toPrint), scriptContext);
+            } else if ((lstrcmpiW(strProperty, L"dbp") == 0) && PHASE_TRACE1(TypeTransitionLoggingPhase))
+            {
+                dType->TrackChangeType = true;
+                //printf("0x%p.\n", dType);
+            }
+        }
+
+
+
         return JavascriptOperators::GetElementIHelper(RecyclableObject::FromVar(target), propertyKey, receiver, scriptContext);
     }
 

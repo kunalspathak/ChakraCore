@@ -53,6 +53,7 @@ namespace Js
         TypePropertyCache *GetPropertyCache();
         TypePropertyCache *CreatePropertyCache();
         BOOL HasSpecialPrototype() const { return (flags & TypeFlagMask_HasSpecialPrototype) == TypeFlagMask_HasSpecialPrototype; }
+        bool TrackChangeType = false;
 
         // This function has a different meaning from RecyclableObject::HasOnlyWritableDataProperties. If this function returns
         // true, then it's implied that RecyclableObject::HasOnlyWritableDataProperties would return true for an object of this

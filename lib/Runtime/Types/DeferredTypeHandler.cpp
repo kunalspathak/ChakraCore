@@ -24,7 +24,14 @@ namespace Js
 
         ScriptContext* scriptContext = instance->GetScriptContext();
         instance->EnsureSlots(0, typeHandler->GetSlotCapacity(), scriptContext, typeHandler);
+        DynamicType* previousType = instance->GetDynamicType();
         typeHandler->SetInstanceTypeHandler(instance);
+        if (previousType->TrackChangeType && previousType != instance->GetDynamicType())
+        {
+            printf("[0x%p] DeferredTypeHandlerBase::Convert.\n", instance);
+            fflush(stdout);
+            instance->GetDynamicType()->TrackChangeType = true;
+        }
 
         // We may be changing to a type handler that already has some properties. Initialize those to undefined.
         const Var undefined = scriptContext->GetLibrary()->GetUndefined();
@@ -99,7 +106,14 @@ namespace Js
             newTypeHandler->SetIsPrototype(instance);
         }
 
+        DynamicType* previousType = instance->GetDynamicType();
         newTypeHandler->SetInstanceTypeHandler(instance);
+        if (previousType->TrackChangeType && previousType != instance->GetDynamicType())
+        {
+            printf("[0x%p] DeferredTypeHandlerBase::ConvertToTypeHandler.\n", instance);
+            fflush(stdout);
+            instance->GetDynamicType()->TrackChangeType = true;
+        }
         AssertMsg(!isProto || instance->GetDynamicType()->GetTypeHandler() == newTypeHandler, "Why did SetIsPrototype force a type handler change on a non-shared type handler?");
 
         return newTypeHandler;
