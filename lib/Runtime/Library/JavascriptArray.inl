@@ -1671,12 +1671,14 @@ SECOND_PASS:
     void JavascriptArray::EnsureCalculationOfAllocationBuckets()
     {
         // If allocation size for current ArrayType has already calculated, no need to recalculate it.
-        bool determineAllocationSize = ElementsCountToInitialize(ArrayType, 0) == 0;
+        bool determineAllocationSize = ArrayType::allocationBuckets[0][MissingElementsCountIndex] == 0;
         if (determineAllocationSize)
         {
+            uint temp;
             for (uint8 i = 0;i < ArrayType::AllocationBucketsCount;i++)
             {
-                ArrayAllocationSize(ArrayType, i) = (uint)DetermineAllocationSize<ArrayType, 0>(ArrayAllocationBucket(ArrayType, i), nullptr, &ElementsCountToInitialize(ArrayType, i));
+                ArrayType::allocationBuckets[i][AllocationSizeIndex] = (uint)DetermineAllocationSize<ArrayType, 0>(ArrayType::allocationBuckets[i][AllocationBucketIndex], nullptr, &temp);
+                ArrayType::allocationBuckets[i][MissingElementsCountIndex] = temp;
             }
         }
         return;
@@ -1692,25 +1694,28 @@ SECOND_PASS:
         
         EnsureCalculationOfAllocationBuckets<ArrayType>();
 
-        if (inlineElementSlots >= 0 && inlineElementSlots <= ArrayAllocationBucket(ArrayType, bucketsCount - 1))
+        if (inlineElementSlots >= 0 && inlineElementSlots <= ArrayType::allocationBuckets[bucketsCount - 1][AllocationBucketIndex])
         {
             for (uint8 i = 0;i < bucketsCount;i++)
             {
-                // Ensure we already have allocation size calculated and within range
-                Assert(ElementsCountToInitialize(ArrayType, i) > 0 && ElementsCountToInitialize(ArrayType, i) <= ElementsCountToInitialize(ArrayType, bucketsCount - 1));
-                Assert(ArrayAllocationSize(ArrayType, i) > 0 && ArrayAllocationSize(ArrayType, i) <= ArrayAllocationSize(ArrayType, bucketsCount - 1));
+                uint elementsCountToInitialize = ArrayType::allocationBuckets[i][MissingElementsCountIndex];
+                uint allocationSize = ArrayType::allocationBuckets[i][AllocationSizeIndex];
 
-                if (inlineElementSlots <= ArrayAllocationBucket(ArrayType, i))
+                // Ensure we already have allocation size calculated and within range
+                Assert(elementsCountToInitialize > 0 && elementsCountToInitialize <= ArrayType::allocationBuckets[bucketsCount - 1][MissingElementsCountIndex]);
+                Assert(allocationSize > 0 && allocationSize <= ArrayType::allocationBuckets[bucketsCount - 1][AllocationSizeIndex]);
+
+                if (inlineElementSlots <= ArrayType::allocationBuckets[i][AllocationBucketIndex])
                 {
                     if (alignedInlineElementSlotsRef)
                     {
-                        *alignedInlineElementSlotsRef = ElementsCountToInitialize(ArrayType, i);
+                        *alignedInlineElementSlotsRef = elementsCountToInitialize;
                     }
                     if (allocationPlusSizeRef)
                     {
-                        *allocationPlusSizeRef = ArrayAllocationSize(ArrayType, i) - sizeof(ArrayType);
+                        *allocationPlusSizeRef = allocationSize - sizeof(ArrayType);
                     }
-                    return ArrayAllocationSize(ArrayType, i);
+                    return allocationSize;
                 }
             }
         }

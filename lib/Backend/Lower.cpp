@@ -3892,15 +3892,18 @@ Lowerer::GenerateArrayAlloc(IR::Instr *instr, IR::Opnd * arrayLenOpnd, Js::Array
 
     for (uint8 i = 0;i < bucketsCount;i++)
     {
+        uint elementsCountToInitialize = ArrayType::allocationBuckets[i][Js::JavascriptArray::MissingElementsCountIndex];
+        uint allocationSize = ArrayType::allocationBuckets[i][Js::JavascriptArray::AllocationSizeIndex];
+
         // Ensure we already have allocation size calculated and within range
-        Assert(ElementsCountToInitialize(ArrayType, i) > 0 && ElementsCountToInitialize(ArrayType, i) <= ElementsCountToInitialize(ArrayType, bucketsCount - 1));
-        Assert(ArrayAllocationSize(ArrayType, i) > 0 && ArrayAllocationSize(ArrayType, i) <= ArrayAllocationSize(ArrayType, bucketsCount - 1));
+        Assert(elementsCountToInitialize > 0 && elementsCountToInitialize <= ArrayType::allocationBuckets[bucketsCount - 1][Js::JavascriptArray::MissingElementsCountIndex]);
+        Assert(allocationSize > 0 && allocationSize <= ArrayType::allocationBuckets[bucketsCount - 1][Js::JavascriptArray::AllocationSizeIndex]);
 
         //  CMP  arrayLen, currentBucket
         //  JG   $checkNextBucket
         if (i != (bucketsCount - 1))
         {
-            Lowerer::InsertCompare(arrayLenOpnd, IR::IntConstOpnd::New((uint16)ArrayAllocationBucket(ArrayType, i), TyUint32, func), instr);
+            Lowerer::InsertCompare(arrayLenOpnd, IR::IntConstOpnd::New((uint16)ArrayType::allocationBuckets[i][Js::JavascriptArray::AllocationBucketIndex], TyUint32, func), instr);
             
             skipToNextBucket = IR::LabelInstr::New(Js::OpCode::Label, func);
             Lowerer::InsertBranch(Js::OpCode::BrGt_A, skipToNextBucket, instr);
@@ -3908,8 +3911,8 @@ Lowerer::GenerateArrayAlloc(IR::Instr *instr, IR::Opnd * arrayLenOpnd, Js::Array
 
         //  MOV  $arrayAlignedSize,  <const1>
         //  MOV  $arrayAllocSize, <const2>
-        Lowerer::InsertMove(arraySizeOpnd, IR::IntConstOpnd::New((uint16)ElementsCountToInitialize(ArrayType, i), TyUint32, func), instr);
-        Lowerer::InsertMove(alignedArrayAllocSizeOpnd, IR::IntConstOpnd::New((uint16)ArrayAllocationSize(ArrayType, i), TyUint32, func), instr);
+        Lowerer::InsertMove(arraySizeOpnd, IR::IntConstOpnd::New((uint16)elementsCountToInitialize, TyUint32, func), instr);
+        Lowerer::InsertMove(alignedArrayAllocSizeOpnd, IR::IntConstOpnd::New((uint16)allocationSize, TyUint32, func), instr);
 
         //  JMP  $doneCalculatingAllocSize
         if (i != (bucketsCount - 1))
@@ -4035,9 +4038,11 @@ Lowerer::GenerateProfiledNewScObjArrayFastPath(IR::Instr *instr, Js::ArrayCallSi
     instr->InsertBefore(helperLabel);
 }
 
+
+template <typename ArrayType>
 void
-Lowerer::GenerateProfiledNewScObjArrayFastPath(IR::Instr *instr, Js::ArrayCallSiteInfo * arrayInfo, intptr_t arrayInfoAddr, intptr_t weakFuncRef, IR::LabelInstr* helperLabel, 
-                                               IR::LabelInstr* labelDone, IR::Opnd* lengthOpnd)
+Lowerer::GenerateProfiledNewScObjArrayFastPath(IR::Instr *instr, Js::ArrayCallSiteInfo * arrayInfo, intptr_t arrayInfoAddr, intptr_t weakFuncRef, IR::LabelInstr* helperLabel,
+                   IR::LabelInstr* labelDone, IR::Opnd* lengthOpnd, uint32 offsetOfCallSiteIndex, uint32 offsetOfWeakFuncRef)
 {
     if (PHASE_OFF(Js::ArrayCtorFastPathPhase, m_func))
     {
@@ -4050,64 +4055,39 @@ Lowerer::GenerateProfiledNewScObjArrayFastPath(IR::Instr *instr, Js::ArrayCallSi
     IR::RegOpnd *dstOpnd = instr->GetDst()->AsRegOpnd();
     IR::RegOpnd *headOpnd;
     Js::ProfileId profileId = static_cast<Js::ProfileId>(instr->AsProfiledInstr()->u.profileId);
-    IR::Opnd * elementSizeOpnd = nullptr;
-    uint multiplier = 0;
-    uint allocationBucketsCount = 0;
-    uint(*allocationBuckets)[3];
+    uint multiplier = sizeof(ArrayType::MissingItem);
+    uint allocationBucketsCount = ArrayType::AllocationBucketsCount;
+    uint(*allocationBuckets)[Js::JavascriptArray::AllocationBucketsInfoSize];
+    allocationBuckets = ArrayType::allocationBuckets;
     uint sizeFactor = 1;
     IRType missingItemType = (arrayInfo && arrayInfo->IsNativeIntArray()) ? IRType::TyInt32 : IRType::TyVar;
-
-    auto generateRangeCheck = [=]() {
-      IR::RegOpnd *const opndValue = GenerateUntagVar(lengthOpnd->AsRegOpnd(), helperLabel, instr);
-      IR::Opnd* upperBound = IR::IntConstOpnd::New(8, TyUint8, func, true);
-      InsertCompare(opndValue, upperBound, instr);
-      InsertBranch(Js::OpCode::BrGt_A, true /* isUnsigned */, helperLabel, instr);
-      return opndValue;
-    };
     IR::LabelInstr * arrayInitDone = IR::LabelInstr::New(Js::OpCode::Label, func);
 
+    bool isVarArray = arrayInfo && !arrayInfo->IsNativeIntArray() && !arrayInfo->IsNativeFloatArray();
+    
     if (arrayInfo && arrayInfo->IsNativeIntArray())
     {
-        multiplier = sizeof(int32);
-        allocationBucketsCount = Js::JavascriptNativeIntArray::AllocationBucketsCount;
-        allocationBuckets = Js::JavascriptNativeIntArray::allocationBuckets;
-        elementSizeOpnd = IR::IntConstOpnd::New(sizeof(Js::JavascriptNativeIntArray::TElement), TyUint8, func);
-        missingItemType = IRType::TyInt32;
         GenerateArrayInfoIsNativeIntArrayTest(instr, arrayInfo, arrayInfoAddr, helperLabel);
-        lengthOpnd = generateRangeCheck();
-        Assert(Js::JavascriptNativeIntArray::GetOffsetOfArrayFlags() + sizeof(uint16) == Js::JavascriptNativeIntArray::GetOffsetOfArrayCallSiteIndex());
-        headOpnd = GenerateArrayAlloc<Js::JavascriptNativeIntArray>(instr, lengthOpnd, arrayInfo, &isZeroed);
-
-        GenerateMemInit(dstOpnd, Js::JavascriptNativeIntArray::GetOffsetOfArrayCallSiteIndex(), IR::IntConstOpnd::New(profileId, TyUint16, func, true), instr, isZeroed);
-        GenerateMemInit(dstOpnd, Js::JavascriptNativeIntArray::GetOffsetOfWeakFuncRef(), IR::AddrOpnd::New(weakFuncRef, IR::AddrOpndKindDynamicFunctionBodyWeakRef, m_func), instr, isZeroed);
     }
     else if (arrayInfo && arrayInfo->IsNativeFloatArray())
     {
-        multiplier = sizeof(Js::JavascriptArray::MissingItem);
-        allocationBucketsCount = Js::JavascriptNativeFloatArray::AllocationBucketsCount;
-        allocationBuckets = Js::JavascriptNativeFloatArray::allocationBuckets;
         // Js::JavascriptArray::MissingItem is a Var, so it may be 32-bit or 64 bit.
         sizeFactor = sizeof(double) / sizeof(Js::JavascriptArray::MissingItem);
-        elementSizeOpnd = IR::IntConstOpnd::New(sizeof(Js::JavascriptNativeFloatArray::TElement), TyUint8, func);
-        missingItemType = IRType::TyVar;
         GenerateArrayInfoIsNativeFloatAndNotIntArrayTest(instr, arrayInfo, arrayInfoAddr, helperLabel);
-        lengthOpnd = generateRangeCheck();
-        Assert(Js::JavascriptNativeFloatArray::GetOffsetOfArrayFlags() + sizeof(uint16) == Js::JavascriptNativeFloatArray::GetOffsetOfArrayCallSiteIndex());
-        headOpnd = GenerateArrayAlloc<Js::JavascriptNativeFloatArray>(instr, lengthOpnd, arrayInfo, &isZeroed);
-
-        GenerateMemInit(dstOpnd, Js::JavascriptNativeFloatArray::GetOffsetOfArrayCallSiteIndex(), IR::IntConstOpnd::New(profileId, TyUint16, func, true), instr, isZeroed);
-        GenerateMemInit(dstOpnd, Js::JavascriptNativeFloatArray::GetOffsetOfWeakFuncRef(), IR::AddrOpnd::New(weakFuncRef, IR::AddrOpndKindDynamicFunctionBodyWeakRef, m_func), instr, isZeroed);
     }
-    else
+
+    lengthOpnd = GenerateUntagVar(lengthOpnd->AsRegOpnd(), helperLabel, instr);
+    IR::Opnd* upperBound = IR::IntConstOpnd::New(8, TyUint8, func, true);
+    InsertCompare(lengthOpnd, upperBound, instr);
+    InsertBranch(Js::OpCode::BrGt_A, true /* isUnsigned */, helperLabel, instr);
+    headOpnd = GenerateArrayAlloc<ArrayType>(instr, lengthOpnd, arrayInfo, &isZeroed);
+
+    if (!isVarArray)
     {
-        multiplier = sizeof(Js::Var);
-        allocationBucketsCount = Js::JavascriptArray::AllocationBucketsCount;
-        allocationBuckets = Js::JavascriptArray::allocationBuckets;
-        elementSizeOpnd = IR::IntConstOpnd::New(sizeof(Js::JavascriptArray::TElement), TyUint8, func);
-        missingItemType = IRType::TyVar;
-        
-        lengthOpnd = generateRangeCheck();
-        headOpnd = GenerateArrayAlloc<Js::JavascriptArray>(instr, lengthOpnd, arrayInfo, &isZeroed);
+        Assert(ArrayType::GetOffsetOfArrayFlags() + sizeof(uint16) == offsetOfCallSiteIndex);
+        Assert(offsetOfWeakFuncRef > 0);
+        GenerateMemInit(dstOpnd, offsetOfCallSiteIndex, IR::IntConstOpnd::New(profileId, TyUint16, func, true), instr, isZeroed);
+        GenerateMemInit(dstOpnd, offsetOfWeakFuncRef, IR::AddrOpnd::New(weakFuncRef, IR::AddrOpndKindDynamicFunctionBodyWeakRef, m_func), instr, isZeroed);
     }
 
     uint const offsetStart = sizeof(Js::SparseArraySegmentBase);
@@ -4117,8 +4097,8 @@ Lowerer::GenerateProfiledNewScObjArrayFastPath(IR::Instr *instr, Js::ArrayCallSi
 
     for (uint8 i = 0;i < allocationBucketsCount;i++)
     {
-        missingItemCount = Get_ElementsCountToInitialize(allocationBuckets, i) * sizeFactor;
-        
+        missingItemCount = allocationBuckets[i][Js::JavascriptArray::MissingElementsCountIndex] * sizeFactor;
+
         if (i > 0)
         {
             // Reduce missingItemCount we have already set so far
@@ -4136,7 +4116,7 @@ Lowerer::GenerateProfiledNewScObjArrayFastPath(IR::Instr *instr, Js::ArrayCallSi
         //  JG   $checkNextBucket
         if (i != (allocationBucketsCount - 1))
         {
-            Lowerer::InsertCompare(lengthOpnd, IR::IntConstOpnd::New(Get_ArrayAllocationBucket(allocationBuckets, i), TyUint32, func), instr);
+            Lowerer::InsertCompare(lengthOpnd, IR::IntConstOpnd::New(allocationBuckets[i][Js::JavascriptArray::AllocationBucketIndex], TyUint32, func), instr);
 
             Lowerer::InsertBranch(Js::OpCode::BrLe_A, arrayInitDone, instr);
         }
@@ -4144,7 +4124,7 @@ Lowerer::GenerateProfiledNewScObjArrayFastPath(IR::Instr *instr, Js::ArrayCallSi
     }
 
     instr->InsertBefore(arrayInitDone);
- 
+
     Lowerer::InsertBranch(Js::OpCode::Br, labelDone, instr);
     instr->InsertBefore(helperLabel);
 }
@@ -5229,7 +5209,22 @@ Lowerer::LowerNewScObjArray(IR::Instr *newObjInstr)
             if (opndOfArrayCtor->IsRegOpnd())
             {
                 // 3. GenerateFastPath
-                GenerateProfiledNewScObjArrayFastPath(newObjInstr, arrayInfo, arrayInfoAddr, weakFuncRef, helperLabel, labelDone, opndOfArrayCtor);
+                if (arrayInfo && arrayInfo->IsNativeIntArray())
+                {
+                    GenerateProfiledNewScObjArrayFastPath<Js::JavascriptNativeIntArray>(newObjInstr, arrayInfo, arrayInfoAddr, weakFuncRef, helperLabel, labelDone, opndOfArrayCtor,
+                                                            Js::JavascriptNativeIntArray::GetOffsetOfArrayCallSiteIndex(),
+                                                            Js::JavascriptNativeIntArray::GetOffsetOfWeakFuncRef());
+                }
+                else if (arrayInfo && arrayInfo->IsNativeFloatArray())
+                {
+                    GenerateProfiledNewScObjArrayFastPath<Js::JavascriptNativeFloatArray>(newObjInstr, arrayInfo, arrayInfoAddr, weakFuncRef, helperLabel, labelDone, opndOfArrayCtor,
+                                                              Js::JavascriptNativeFloatArray::GetOffsetOfArrayCallSiteIndex(),
+                                                              Js::JavascriptNativeFloatArray::GetOffsetOfWeakFuncRef());
+                }
+                else
+                {
+                    GenerateProfiledNewScObjArrayFastPath<Js::JavascriptArray>(newObjInstr, arrayInfo, arrayInfoAddr, weakFuncRef, helperLabel, labelDone, opndOfArrayCtor, 0, 0);
+                }
             }
             // 2b. If 1st paramter is a constant, it is in range 0 and upperBoundValue (inclusive)
             else

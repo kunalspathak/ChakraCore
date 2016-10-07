@@ -6,11 +6,6 @@
 #pragma once
 
 #define ARRAY_CROSSOVER_FOR_VALIDATE 0
-#define ArrayAllocationBucket(ArrayType, index) ArrayType::allocationBuckets[index][0]
-#define ElementsCountToInitialize(ArrayType, index) ArrayType::allocationBuckets[index][1]
-#define ArrayAllocationSize(ArrayType, index) ArrayType::allocationBuckets[index][2]
-#define Get_ArrayAllocationBucket(allocationbucket, index) allocationbucket[index][0]
-#define Get_ElementsCountToInitialize(allocationbucket, index) allocationbucket[index][1]
 
 namespace Js
 {
@@ -123,12 +118,19 @@ namespace Js
         static ushort const MergeSegmentsLengthHeuristics = 128; // If the length is less than MergeSegmentsLengthHeuristics then try to merge the segments
         static uint64 const FiftyThirdPowerOfTwoMinusOne = 0x1FFFFFFFFFFFFF;  // 2^53-1
 
+        static const uint8 AllocationBucketsInfoSize = 3;
+        // 0th colum in allocationBuckets
+        static const uint8 AllocationBucketIndex = 0;
+        // 1st column in allocationBuckets that stores no. of missing elements to initialize for given bucket
+        static const uint8 MissingElementsCountIndex = 1;
+        // 2nd column in allocationBuckets that stores allocation size for given bucket 
+        static const uint8 AllocationSizeIndex = 2;
 #if defined(_M_X64_OR_ARM64)
         static const uint8 AllocationBucketsCount = 3;
 #else
         static const uint8 AllocationBucketsCount = 2;
 #endif
-        static uint allocationBuckets[][3];
+        static uint allocationBuckets[AllocationBucketsCount][AllocationBucketsInfoSize];
         static const Var MissingItem;
         template<typename T> static T GetMissingItem();
 
@@ -936,7 +938,7 @@ namespace Js
         typedef int32 TElement;
 
         static const uint8 AllocationBucketsCount = 3;
-        static uint allocationBuckets[][3];
+        static uint allocationBuckets[AllocationBucketsCount][AllocationBucketsInfoSize];
         static const int32 MissingItem;
 
         virtual BOOL HasItem(uint32 index) override;
@@ -1075,7 +1077,7 @@ namespace Js
         typedef double TElement;
 
         static const uint8 AllocationBucketsCount = 3;
-        static uint allocationBuckets[][3];
+        static uint allocationBuckets[AllocationBucketsCount][AllocationBucketsInfoSize];
         static const double MissingItem;
 
         virtual BOOL HasItem(uint32 index) override;
