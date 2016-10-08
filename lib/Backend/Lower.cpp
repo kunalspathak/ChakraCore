@@ -4063,7 +4063,7 @@ Lowerer::GenerateProfiledNewScObjArrayFastPath(IR::Instr *instr, Js::ArrayCallSi
     IRType missingItemType = (arrayInfo && arrayInfo->IsNativeIntArray()) ? IRType::TyInt32 : IRType::TyVar;
     IR::LabelInstr * arrayInitDone = IR::LabelInstr::New(Js::OpCode::Label, func);
 
-    bool isVarArray = arrayInfo && !arrayInfo->IsNativeIntArray() && !arrayInfo->IsNativeFloatArray();
+    bool isNativeArray = arrayInfo && (arrayInfo->IsNativeIntArray() || arrayInfo->IsNativeFloatArray());
     
     if (arrayInfo && arrayInfo->IsNativeIntArray())
     {
@@ -4082,7 +4082,7 @@ Lowerer::GenerateProfiledNewScObjArrayFastPath(IR::Instr *instr, Js::ArrayCallSi
     InsertBranch(Js::OpCode::BrGt_A, true /* isUnsigned */, helperLabel, instr);
     headOpnd = GenerateArrayAlloc<ArrayType>(instr, lengthOpnd, arrayInfo, &isZeroed);
 
-    if (!isVarArray)
+    if (isNativeArray)
     {
         Assert(ArrayType::GetOffsetOfArrayFlags() + sizeof(uint16) == offsetOfCallSiteIndex);
         Assert(offsetOfWeakFuncRef > 0);
