@@ -32,7 +32,7 @@
 if(typeof(WScript) === "undefined")
 {
     var WScript = {
-        Echo: print
+        Echo: console.log
     }
 }
 
@@ -5098,13 +5098,13 @@ function NotifyStart(name) {
 }
 
 function NotifyError(name, error) {
-  WScript.Echo(name + " : ERROR : " +error.stack);
+  console.log(name + " : ERROR : " +error.stack);
   success = false;
 }
 
 function NotifyResult(name, score) {
   if (success) {
-    WScript.Echo("### SCORE:", score);
+    console.log("### SCORE:", score);
   }
 }
 
