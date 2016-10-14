@@ -1951,7 +1951,7 @@ function runJQuery() {
               "(function(){return windowmock.jQuery.grep([jQuerySalt],\
               function(a,b){return true;})[0];})();";
     src = cacheBust(src, "jQuery");
-    var result = indirectEval(src);
+    var result = eval(src);
     if (result != salt) throw(new Error("Incorrect result: " + result));
   })();
 }

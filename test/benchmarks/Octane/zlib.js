@@ -660,8 +660,8 @@ odule.read=function(a,b){var a=fa.normalize(a),c=ea.readFileSync(a);!c&&a!=fa.r\
 esolve(a)&&(a=path.join(__dirname,"..","src",a),c=ea.readFileSync(a));c&&!b&&(c\
 =c.toString());return c};Module.readBinary=function(a){return Module.read(a,n)}\
 ;Module.load=function(a){ga(read(a))};Module.arguments||(Module.arguments=proce\
-ss.argv.slice(2))} da&&(Module.print=print,"undefined"!=typeof printErr&&(Modul\
-e.printErr=printErr),Module.read=read,Module.readBinary=function(a){return read\
+ss.argv.slice(2))} da&&(Module.print=console.log,"undefined"!=typeof printErr&&(Modul\
+e.printErr=printErr),Module.readBinary=function(a){return read\
 (a,"binary")},Module.arguments||("undefined"!=typeof scriptArgs?Module.argument\
 s=scriptArgs:"undefined"!=typeof arguments&&(Module.arguments=arguments)));ca&&\
 !v&&(Module.print||(Module.print=function(a){console.log(a)}),Module.printErr||\
@@ -3024,4 +3024,3 @@ BenchmarkSuite.RunSuites({
     NotifyResult : NotifyResult,
     NotifyScore : NotifyScore
 });
-

@@ -1863,6 +1863,7 @@ var StatTimer = (function StatTimerClosure() {
  * @return {Promise} A promise that is resolved with {PDFDocumentProxy} object.
  */
 PDFJS.getDocument = function getDocument(source) {
+  PDFJS.getPdf = getPdf;
   var promise = new PDFJS.Promise();
   var transport = new WorkerTransport(promise);
   if (typeof source === 'string') {
