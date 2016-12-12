@@ -629,6 +629,9 @@
 #endif
 #endif
 
+#define ENABLE_TRACE
+#define STACK_BACK_TRACE
+
 // ENABLE_DEBUG_STACK_BACK_TRACE is for capturing stack back trace for debug only.
 // (STACK_BACK_TRACE is enabled on release build, used by RECYCLER_PAGE_HEAP.)
 #if ENABLE_DEBUG_CONFIG_OPTIONS && defined(STACK_BACK_TRACE)

@@ -582,6 +582,7 @@ Recycler::SetIsThreadBound()
 void
 Recycler::RootAddRef(void* obj, uint *count)
 {
+    Output::Trace(Js::Phase::AddRefPhase, _u("---AddRef---"));
     Assert(this->IsValidObject(obj));
 
     if (transientPinnedObject)
@@ -625,6 +626,7 @@ Recycler::RootAddRef(void* obj, uint *count)
 void
 Recycler::RootRelease(void* obj, uint *count)
 {
+    Output::Trace(Js::Phase::ReleaseRefPhase, _u("---ReleaseRef---"));
     Assert(this->IsValidObject(obj));
 
     if (transientPinnedObject == obj)
