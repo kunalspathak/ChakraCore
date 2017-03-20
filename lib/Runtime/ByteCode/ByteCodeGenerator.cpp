@@ -1193,6 +1193,10 @@ FuncInfo * ByteCodeGenerator::StartBindFunction(const char16 *name, uint nameLen
         pnode->sxFnc.SetDeclaration(parsedFunctionBody->GetIsDeclaration());
         if (!pnode->sxFnc.CanBeDeferred())
         {
+            parsedFunctionBody->cond6 = pnode->sxFnc.cond1;
+            parsedFunctionBody->cond7 = pnode->sxFnc.cond2;
+            parsedFunctionBody->cond8 = pnode->sxFnc.cond3;
+            parsedFunctionBody->cond9 = pnode->sxFnc.cond4;
             parsedFunctionBody->SetAttributes(
                 (Js::FunctionInfo::Attributes)(parsedFunctionBody->GetAttributes() & ~Js::FunctionInfo::Attributes::CanDefer));
         }
@@ -1334,6 +1338,15 @@ FuncInfo * ByteCodeGenerator::StartBindFunction(const char16 *name, uint nameLen
             }
             LEAVE_PINNED_SCOPE();
         }
+
+        if (!pnode->sxFnc.CanBeDeferred())
+        {
+            parseableFunctionInfo->cond6 = pnode->sxFnc.cond1;
+            parseableFunctionInfo->cond7 = pnode->sxFnc.cond2;
+            parseableFunctionInfo->cond8 = pnode->sxFnc.cond3;
+            parseableFunctionInfo->cond9 = pnode->sxFnc.cond4;
+        }
+        
 
         // In either case register the function reference
         scriptContext->GetLibrary()->RegisterDynamicFunctionReference(parseableFunctionInfo);

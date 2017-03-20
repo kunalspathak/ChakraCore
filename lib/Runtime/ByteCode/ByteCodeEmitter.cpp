@@ -3855,6 +3855,18 @@ void ByteCodeGenerator::StartEmitFunction(ParseNode *pnodeFnc)
                     scope->GetScopeType() != ScopeType_GlobalEvalBlock &&
                     scope->GetMustInstantiate())
                 {
+                    funcInfo->byteCodeFunction->cond1 = 'T';
+                    funcInfo->byteCodeFunction->cond2 = scope->GetScopeType() != ScopeType_FunctionBody ? 'T' : 'F';
+                    funcInfo->byteCodeFunction->cond3 = scope->GetScopeType() != ScopeType_Global ? 'T' : 'F';
+                    funcInfo->byteCodeFunction->cond4 = scope->GetScopeType() != ScopeType_GlobalEvalBlock ? 'T' : 'F';
+                    funcInfo->byteCodeFunction->cond5 = scope->GetMustInstantiate() ? 'T' : 'F';
+
+                    funcInfo->byteCodeFunction->cond6 = pnodeFnc->sxFnc.cond1;
+                    funcInfo->byteCodeFunction->cond7 = pnodeFnc->sxFnc.cond2;
+                    funcInfo->byteCodeFunction->cond8 = pnodeFnc->sxFnc.cond3;
+                    funcInfo->byteCodeFunction->cond9 = pnodeFnc->sxFnc.cond4;
+
+
                     funcInfo->byteCodeFunction->SetAttributes((Js::FunctionInfo::Attributes)(funcInfo->byteCodeFunction->GetAttributes() & ~Js::FunctionInfo::Attributes::CanDefer));
                     break;
                 }

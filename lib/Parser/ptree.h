@@ -249,6 +249,11 @@ struct PnFnc
     bool canBeDeferred;
     bool fibPreventsDeferral;
 
+    char cond1; // isTopLevelDeferredFunc
+    char cond2; // PnFnc::CanBeRedeferred(pnodeFnc->sxFnc.fncFlags)
+    char cond3; // SetFIBPreventsDeferral(false);
+    char cond4; // asmjs
+
     static const int32 MaxStackClosureAST = 800000;
 
     static bool CanBeRedeferred(unsigned int flags) { return !(flags & (kFunctionIsGenerator | kFunctionIsAsync)); }
@@ -287,6 +292,11 @@ public:
         fncFlags = kFunctionNone;
         canBeDeferred = false;
         fibPreventsDeferral = false;
+
+        cond1 = ' ';
+        cond2 = ' ';
+        cond3 = ' ';
+        cond4 = ' ';
     }
 
     void SetAsmjsMode(bool set = true) { SetFlags(kFunctionAsmjsMode, set); }

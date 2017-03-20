@@ -2161,6 +2161,16 @@ namespace Js
 #if DBG
         FieldWithBarrier(UINT) scopeObjectSize; // If the scope is an activation object - its size
 #endif
+        FieldWithBarrier(char) cond1; // FIBPreventsDeferral
+        FieldWithBarrier(char) cond2; // scope->GetScopeType() != ScopeType_FunctionBody
+        FieldWithBarrier(char) cond3; // scope->GetScopeType() != ScopeType_Global
+        FieldWithBarrier(char) cond4; //  scope->GetScopeType() != ScopeType_GlobalEvalBlock
+        FieldWithBarrier(char) cond5; //  scope->GetMustInstantiate
+
+        FieldWithBarrier(char) cond6; //  isTopLevelDeferredFunc
+        FieldWithBarrier(char) cond7; //  PnFnc::CanBeRedeferred(pnodeFnc->sxFnc.fncFlags)
+        FieldWithBarrier(char) cond8; //  SetFIBPreventsDeferral(false);
+        FieldWithBarrier(char) cond9; // asmjs
     };
 
     //

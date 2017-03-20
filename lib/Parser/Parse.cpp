@@ -5014,6 +5014,23 @@ bool Parser::ParseFncDeclHelper(ParseNodePtr pnodeFnc, LPCOLESTR pNameHint, usho
 
         if (pnodeFnc)
         {
+            
+
+            char reason = ' ';
+            reason = !fLambda ? ' ' : '1';
+            reason = (reason != ' ') ? reason : (DeferredParse(pnodeFnc->sxFnc.functionId) ? ' ' : '2');
+            if (reason == '2') {
+                reason = ((m_grfscr & fscrDeferFncParse) == 0) ? '6' : reason;
+            }
+            reason = (reason != ' ') ? reason : ((!pnodeFnc->sxFnc.IsNested() || CONFIG_FLAG(DeferNested)) ? ' ' : '3');
+            reason = (reason != ' ') ? reason : (!m_InAsmMode ? ' ' : '4');
+            reason = (reason != ' ') ? reason : (!fModule ? ' ' : '5');
+
+
+            pnodeFnc->sxFnc.cond1 = isTopLevelDeferredFunc ? 'T' : reason;
+            pnodeFnc->sxFnc.cond2 = PnFnc::CanBeRedeferred(pnodeFnc->sxFnc.fncFlags) ? 'T' : 'F';
+            pnodeFnc->sxFnc.cond3 = 'F';
+
             pnodeFnc->sxFnc.SetCanBeDeferred(isTopLevelDeferredFunc && PnFnc::CanBeRedeferred(pnodeFnc->sxFnc.fncFlags));
             pnodeFnc->sxFnc.SetFIBPreventsDeferral(false);
         }
@@ -5026,6 +5043,7 @@ bool Parser::ParseFncDeclHelper(ParseNodePtr pnodeFnc, LPCOLESTR pNameHint, usho
                 // So on creating the full FunctionBody at byte code gen time, verify that there is no
                 // block-scoped content visible to this function so it can remain a redeferral candidate.
                 pnodeFnc->sxFnc.SetFIBPreventsDeferral(true);
+                pnodeFnc->sxFnc.cond3 = 'T';
             }
             isTopLevelDeferredFunc = false;
         }        
@@ -10563,6 +10581,7 @@ void Parser::ParseStmtList(ParseNodePtr *ppnodeList, ParseNodePtr **pppnodeLast,
                         Assert(m_currentNodeFunc != nullptr);
                         m_currentNodeFunc->sxFnc.SetAsmjsMode();
                         m_currentNodeFunc->sxFnc.SetCanBeDeferred(false);
+                        m_currentNodeFunc->sxFnc.cond4 = 'T';
                         m_InAsmMode = true;
 
                         CHAKRATEL_LANGSTATS_INC_LANGFEATURECOUNT(AsmJSFunction, m_scriptContext);

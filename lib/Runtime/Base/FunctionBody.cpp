@@ -844,9 +844,16 @@ namespace Js
           bool cond2 = this->CanBeDeferred();
           bool cond3 = this->GetByteCode() != 0;
           bool cond4 = this->GetCanDefer();
-          PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("**NOT Redeferring function %d.%d: %s. Bytes = 0x%x, Reason = 829. cond1 = %d, cond2 = %d, cond3 = %d, cond4 = %d\n"),
+          PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("**NOT Redeferring function %d.%d: %s. Bytes = 0x%x, Reason = 829 : %d%d%d%d"),
             GetSourceContextId(), GetLocalFunctionId(),
             GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"), recoveredBytes, cond1, cond2, cond3, cond4);
+          if (!cond2) {
+              PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u(" : %c,%c,%c,%c,%c,%c,%c,%c,%c\n"), this->cond1, this->cond2, this->cond3, this->cond4, this->cond5, this->cond6, this->cond7, this->cond8, this->cond9);
+          }
+          else {
+              PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("\n"));
+          }
+
             return false;
         }
 
@@ -1617,6 +1624,15 @@ namespace Js
       ,scopeObjectSize(0)
 #endif
     {
+        cond1 = ' ';
+        cond2 = ' ';
+        cond3 = ' ';
+        cond4 = ' ';
+        cond5 = ' ';
+        cond6 = ' ';
+        cond7 = ' ';
+        cond8 = ' ';
+        cond9 = ' ';
         this->functionInfo = RecyclerNew(scriptContext->GetRecycler(), FunctionInfo, entryPoint, attributes, functionId, this);
 
         if (nestedCount > 0)
@@ -1684,6 +1700,16 @@ namespace Js
 
         SetBoundPropertyRecords(proxy->GetBoundPropertyRecords());
         SetDisplayName(proxy->GetDisplayName(), proxy->GetDisplayNameLength(), proxy->GetShortDisplayNameOffset());
+        cond1 = ' ';
+        cond2 = ' ';
+        cond3 = ' ';
+        cond4 = ' ';
+        cond5 = ' ';
+        cond6 = ' ';
+        cond7 = ' ';
+        cond8 = ' ';
+        cond9 = ' ';
+
     }
 
     ParseableFunctionInfo* ParseableFunctionInfo::New(ScriptContext* scriptContext, int nestedCount,
