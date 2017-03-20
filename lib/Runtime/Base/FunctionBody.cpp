@@ -821,11 +821,32 @@ namespace Js
 
     bool FunctionBody::DoRedeferFunction(uint inactiveThreshold) const
     {
+
+          uint recoveredBytes = sizeof(*this) + this->GetInlineCacheCount() * sizeof(InlineCache);
+          if (this->byteCodeBlock)
+          {
+            recoveredBytes += this->byteCodeBlock->GetLength();
+            if (this->GetAuxiliaryData())
+            {
+              recoveredBytes += this->GetAuxiliaryData()->GetLength();
+            }
+          }
+          this->MapEntryPoints([&](int index, FunctionEntryPointInfo * info) {
+            recoveredBytes += sizeof(info);
+          });
+
         if (!(this->GetFunctionInfo()->GetFunctionProxy() == this &&
               this->CanBeDeferred() &&
               this->GetByteCode() &&
               this->GetCanDefer()))
         {
+          bool cond1 = this->GetFunctionInfo()->GetFunctionProxy() == this;
+          bool cond2 = this->CanBeDeferred();
+          bool cond3 = this->GetByteCode() != 0;
+          bool cond4 = this->GetCanDefer();
+          PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("**NOT Redeferring function %d.%d: %s. Bytes = 0x%x, Reason = 829. cond1 = %d, cond2 = %d, cond3 = %d, cond4 = %d\n"),
+            GetSourceContextId(), GetLocalFunctionId(),
+            GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"), recoveredBytes, cond1, cond2, cond3, cond4);
             return false;
         }
 
@@ -836,9 +857,16 @@ namespace Js
             tmpThreshold = UInt32Math::Mul(inactiveThreshold, this->GetCompileCount(), fn);
             if (this->GetInactiveCount() < tmpThreshold)
             {
+              PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("**NOT Redeferring function %d.%d: %s. Bytes = 0x%x, Reason = threshold\n"),
+                GetSourceContextId(), GetLocalFunctionId(),
+                GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"), recoveredBytes);
                 return false;
             }
         }
+
+
+        bool jitCandidateFromEntryPoint = false;
+        bool jitCandidateFromLoopEntryPoint = false;
 
         // Make sure the function won't be jitted
         bool isJitModeFunction = !this->IsInterpreterExecutionMode();
@@ -851,6 +879,7 @@ namespace Js
             }
             return false;
         });
+        jitCandidateFromEntryPoint = isJitCandidate;
 
         if (!isJitCandidate)
         {
@@ -866,6 +895,23 @@ namespace Js
                     return false;
                 });
             });
+        }
+        jitCandidateFromLoopEntryPoint = isJitCandidate;
+        
+
+        if (isJitCandidate) {
+          Assert(isJitCandidate == (jitCandidateFromLoopEntryPoint || jitCandidateFromEntryPoint));
+
+          if (jitCandidateFromEntryPoint) {
+            PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("**NOT Redeferring function %d.%d: %s.  Bytes = 0x%x, Reason = jitCandidateFromEntryPoint\n"),
+              GetSourceContextId(), GetLocalFunctionId(),
+              GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"), recoveredBytes);
+          }
+          if (jitCandidateFromLoopEntryPoint) {
+            PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("**NOT Redeferring function %d.%d: %s. Bytes = 0x%x, Reason = jitCandidateFromLoopEntryPoint\n"),
+              GetSourceContextId(), GetLocalFunctionId(),
+              GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"), recoveredBytes);
+          }
         }
 
         return !isJitCandidate;
@@ -899,10 +945,22 @@ namespace Js
         // We can't get here if the function is being jitted. Jitting was either completed or not begun.
         this->counters.bgThreadCallStarted = false;
 #endif
+        uint recoveredBytes = sizeof(*this) + this->GetInlineCacheCount() * sizeof(InlineCache);
+        if (this->byteCodeBlock)
+        {
+            recoveredBytes += this->byteCodeBlock->GetLength();
+            if (this->GetAuxiliaryData())
+            {
+                recoveredBytes += this->GetAuxiliaryData()->GetLength();
+            }
+        }
+        this->MapEntryPoints([&](int index, FunctionEntryPointInfo * info) {
+            recoveredBytes += sizeof(info);
+        });
 
-        PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("Redeferring function %d.%d: %s\n"),
+        PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("Redeferring function %d.%d: %s Bytes = 0x%x, \n"),
                           GetSourceContextId(), GetLocalFunctionId(),
-                          GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"));
+                          GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"), recoveredBytes);
 
         ParseableFunctionInfo * parseableFunctionInfo =
             Js::ParseableFunctionInfo::NewDeferredFunctionFromFunctionBody(this);
