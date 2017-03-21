@@ -896,6 +896,9 @@ namespace Js
                 // Defer function bodies declared inside large dynamic blocks.
                 grfscr |= fscrDeferFncParse;
             }
+            else {
+                parser.m_deferParseCond = 'e';
+            }
 
             grfscr = grfscr | fscrDynamicCode;
 

@@ -2049,6 +2049,7 @@ void Parser::ReduceDeferredScriptLength(size_t chars)
         }
         if (m_length < Parser::GetDeferralThreshold(this->m_sourceContextInfo->IsSourceProfileLoaded()))
         {
+            m_deferParseCond = 'a';
             // Stop deferring.
             m_grfscr &= ~fscrDeferFncParse;
             m_stoppedDeferredParse = TRUE;
@@ -4979,6 +4980,7 @@ bool Parser::ParseFncDeclHelper(ParseNodePtr pnodeFnc, LPCOLESTR pNameHint, usho
         // Also shut off deferring on getter/setter or other construct with unusual text bounds
         // (fFncNoName|fFncLambda) as these are usually trivial, and re-parsing is problematic.
         m_grfscr &= ~fscrDeferFncParse;
+        m_deferParseCond = 'b';
     }
 
     bool saveInFIB = this->m_inFIB;
@@ -5014,13 +5016,11 @@ bool Parser::ParseFncDeclHelper(ParseNodePtr pnodeFnc, LPCOLESTR pNameHint, usho
 
         if (pnodeFnc)
         {
-            
-
             char reason = ' ';
             reason = !fLambda ? ' ' : '1';
             reason = (reason != ' ') ? reason : (DeferredParse(pnodeFnc->sxFnc.functionId) ? ' ' : '2');
             if (reason == '2') {
-                reason = ((m_grfscr & fscrDeferFncParse) == 0) ? '6' : reason;
+                reason = ((m_grfscr & fscrDeferFncParse) == 0) ? m_deferParseCond : reason;
             }
             reason = (reason != ' ') ? reason : ((!pnodeFnc->sxFnc.IsNested() || CONFIG_FLAG(DeferNested)) ? ' ' : '3');
             reason = (reason != ' ') ? reason : (!m_InAsmMode ? ' ' : '4');
@@ -10962,6 +10962,7 @@ ParseNodePtr Parser::Parse(LPCUTF8 pszSrc, size_t offset, size_t length, charcou
     ParseNodePtr *lastNodeRef = nullptr;
 
     m_nextBlockId = 0;
+    m_deferParseCond = '_';
 
     // Scanner should run in Running mode and not syntax coloring mode
     grfscr &= ~fscrSyntaxColor;
@@ -10976,6 +10977,7 @@ ParseNodePtr Parser::Parse(LPCUTF8 pszSrc, size_t offset, size_t length, charcou
         // Don't do deferred parsing if debugger is attached or feature is disabled
         // by command-line switch.
         grfscr &= ~fscrDeferFncParse;
+        m_deferParseCond = 'c';
     }
     else if (!(grfscr & fscrGlobalCode) &&
              (
@@ -10987,6 +10989,7 @@ ParseNodePtr Parser::Parse(LPCUTF8 pszSrc, size_t offset, size_t length, charcou
         // Don't defer event handlers in debug/rundown mode, because we need to register the document,
         // so we need to create a full FunctionBody for the script body.
         grfscr &= ~fscrDeferFncParse;
+        m_deferParseCond = 'd';
     }
 
     bool isDeferred = (grfscr & fscrDeferredFnc) != 0;

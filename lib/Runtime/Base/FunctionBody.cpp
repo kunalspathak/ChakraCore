@@ -2375,6 +2375,7 @@ namespace Js
                     }
                     if (!CONFIG_FLAG(DeferNested) || isDebugOrAsmJsReparse)
                     {
+                        // Add check here
                         grfscr &= ~fscrDeferFncParse; // Disable deferred parsing if not DeferNested, or doing a debug/asm.js re-parse
                     }
 
@@ -2388,6 +2389,10 @@ namespace Js
                         CompileScriptException se;
                         Parser ps(m_scriptContext, funcBody->GetIsStrictMode() ? TRUE : FALSE);
                         ParseNodePtr parseTree;
+                        if (!CONFIG_FLAG(DeferNested) || isDebugOrAsmJsReparse)
+                        {
+                            ps.m_deferParseCond = 'g';
+                        }
 
                         uint nextFunctionId = funcBody->GetLocalFunctionId();
                         hrParser = ps.ParseSourceWithOffset(&parseTree, pszStart, offset, length, charOffset, isCesu8, grfscr, &se,

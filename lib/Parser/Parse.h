@@ -237,7 +237,14 @@ protected:
     Scanner_t*  m_pscan;
 
 public:
-
+    /*
+    'a' = 
+    'b' =
+    'c' =
+    'd' =
+    'e' =
+    */
+    char m_deferParseCond;
     // create nodes using arena allocator; used by AST transformation
     template <OpCode nop>
     static ParseNodePtr StaticCreateNodeT(ArenaAllocator* alloc, charcount_t ichMin = 0, charcount_t ichLim = 0)

@@ -1854,6 +1854,9 @@ namespace Js
         {
             grfscr |= fscrDeferFncParse;
         }
+        else {
+            parser->m_deferParseCond = 'f';
+        }
 
         if((loadScriptFlag & LoadScriptFlag_disableAsmJs) == LoadScriptFlag_disableAsmJs)
         {
