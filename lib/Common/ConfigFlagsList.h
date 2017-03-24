@@ -489,7 +489,7 @@ PHASE(All)
 #define DEFAULT_CONFIG_AsmGoptCleanupThreshold  (500)
 #define DEFAULT_CONFIG_OptimizeForManyInstances (false)
 
-#define DEFAULT_CONFIG_DeferParseThreshold             (4 * 1024) // Unit is number of characters
+#define DEFAULT_CONFIG_DeferParseThreshold             (1 * 1024) // Unit is number of characters
 #define DEFAULT_CONFIG_ProfileBasedDeferParseThreshold (100)      // Unit is number of characters
 
 #define DEFAULT_CONFIG_ProfileBasedSpeculativeJit (true)

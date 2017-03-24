@@ -2171,6 +2171,8 @@ namespace Js
         FieldWithBarrier(char) cond7; //  PnFnc::CanBeRedeferred(pnodeFnc->sxFnc.fncFlags)
         FieldWithBarrier(char) cond8; //  SetFIBPreventsDeferral(false);
         FieldWithBarrier(char) cond9; // asmjs
+        FieldWithBarrier(char) cond10; // ParserType
+
     };
 
     //

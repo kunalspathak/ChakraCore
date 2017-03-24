@@ -129,6 +129,7 @@ Parser::Parser(Js::ScriptContext* scriptContext, BOOL strictMode, PageAllocator 
 
     m_parseType = ParseType_Upfront;
 
+    m_deferParseCond = '_';
     m_deferEllipsisError = false;
     m_hasDeferredShorthandInitError = false;
     m_parsingSuperRestrictionState = ParsingSuperRestrictionState_SuperDisallowed;
@@ -2049,6 +2050,7 @@ void Parser::ReduceDeferredScriptLength(size_t chars)
         }
         if (m_length < Parser::GetDeferralThreshold(this->m_sourceContextInfo->IsSourceProfileLoaded()))
         {
+            Assert(m_deferParseCond == '_');
             m_deferParseCond = 'a';
             // Stop deferring.
             m_grfscr &= ~fscrDeferFncParse;
@@ -4980,7 +4982,9 @@ bool Parser::ParseFncDeclHelper(ParseNodePtr pnodeFnc, LPCOLESTR pNameHint, usho
         // Also shut off deferring on getter/setter or other construct with unusual text bounds
         // (fFncNoName|fFncLambda) as these are usually trivial, and re-parsing is problematic.
         m_grfscr &= ~fscrDeferFncParse;
-        m_deferParseCond = 'b';
+        if (m_deferParseCond != '_') {
+            m_deferParseCond = 'b';
+        }
     }
 
     bool saveInFIB = this->m_inFIB;
@@ -5030,6 +5034,7 @@ bool Parser::ParseFncDeclHelper(ParseNodePtr pnodeFnc, LPCOLESTR pNameHint, usho
             pnodeFnc->sxFnc.cond1 = isTopLevelDeferredFunc ? 'T' : reason;
             pnodeFnc->sxFnc.cond2 = PnFnc::CanBeRedeferred(pnodeFnc->sxFnc.fncFlags) ? 'T' : 'F';
             pnodeFnc->sxFnc.cond3 = 'F';
+            pnodeFnc->sxFnc.cond5 = m_parseType == ParseType::ParseType_Deferred ? 'D' : 'U';
 
             pnodeFnc->sxFnc.SetCanBeDeferred(isTopLevelDeferredFunc && PnFnc::CanBeRedeferred(pnodeFnc->sxFnc.fncFlags));
             pnodeFnc->sxFnc.SetFIBPreventsDeferral(false);
@@ -5090,6 +5095,7 @@ bool Parser::ParseFncDeclHelper(ParseNodePtr pnodeFnc, LPCOLESTR pNameHint, usho
 #endif
         }
     }
+    m_deferParseCond = '_';
 
     if (!doParallel)
     {
@@ -10962,8 +10968,6 @@ ParseNodePtr Parser::Parse(LPCUTF8 pszSrc, size_t offset, size_t length, charcou
     ParseNodePtr *lastNodeRef = nullptr;
 
     m_nextBlockId = 0;
-    m_deferParseCond = '_';
-
     // Scanner should run in Running mode and not syntax coloring mode
     grfscr &= ~fscrSyntaxColor;
 

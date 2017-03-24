@@ -3865,6 +3865,8 @@ void ByteCodeGenerator::StartEmitFunction(ParseNode *pnodeFnc)
                     funcInfo->byteCodeFunction->cond7 = pnodeFnc->sxFnc.cond2;
                     funcInfo->byteCodeFunction->cond8 = pnodeFnc->sxFnc.cond3;
                     funcInfo->byteCodeFunction->cond9 = pnodeFnc->sxFnc.cond4;
+                    funcInfo->byteCodeFunction->cond10 = pnodeFnc->sxFnc.cond5;
+
 
 
                     funcInfo->byteCodeFunction->SetAttributes((Js::FunctionInfo::Attributes)(funcInfo->byteCodeFunction->GetAttributes() & ~Js::FunctionInfo::Attributes::CanDefer));

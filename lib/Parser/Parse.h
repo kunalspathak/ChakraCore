@@ -245,6 +245,8 @@ public:
     'e' =
     */
     char m_deferParseCond;
+    size_t m_lengthForCond;
+    size_t m_ThresholdForCond;
     // create nodes using arena allocator; used by AST transformation
     template <OpCode nop>
     static ParseNodePtr StaticCreateNodeT(ArenaAllocator* alloc, charcount_t ichMin = 0, charcount_t ichLim = 0)

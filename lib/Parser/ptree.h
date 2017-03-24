@@ -253,6 +253,7 @@ struct PnFnc
     char cond2; // PnFnc::CanBeRedeferred(pnodeFnc->sxFnc.fncFlags)
     char cond3; // SetFIBPreventsDeferral(false);
     char cond4; // asmjs
+    char cond5; //m_ParseType
 
     static const int32 MaxStackClosureAST = 800000;
 

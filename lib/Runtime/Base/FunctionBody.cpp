@@ -844,16 +844,24 @@ namespace Js
           bool cond2 = this->CanBeDeferred();
           bool cond3 = this->GetByteCode() != 0;
           bool cond4 = this->GetCanDefer();
-          PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("**NOT Redeferring function %d.%d: %s. Bytes = 0x%x, Reason = 829 : %d%d%d%d"),
-            GetSourceContextId(), GetLocalFunctionId(),
-            GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"), recoveredBytes, cond1, cond2, cond3, cond4);
-          if (!cond2) {
-              PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u(" : %c,%c,%c,%c,%c,%c,%c,%c,%c\n"), this->cond1, this->cond2, this->cond3, this->cond4, this->cond5, this->cond6, this->cond7, this->cond8, this->cond9);
+
+          size_t l = this->GetUtf8SourceInfo()->GetCchLength(), t = Parser::GetDeferralThreshold(this->GetSourceContextInfo()->IsSourceProfileLoaded());
+          if (!cond2 && (l < t)) {
+              /*PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("**NOT Redeferring function %d.%d: %s. Bytes = 0x%x, Length = 0x%x. Reason = ThresholdLimit\n"),
+                  GetSourceContextId(), GetLocalFunctionId(),
+                  GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"), recoveredBytes, l);*/
+              Output::Print(_u("**NOT Redeferring function %d.%d: %s. Bytes = 0x%x, Length = 0x%x. Reason = ThresholdLimit\n"),
+                  GetSourceContextId(), GetLocalFunctionId(),
+                  GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"), recoveredBytes, l);
           }
           else {
-              PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("\n"));
+              /*PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("**NOT Redeferring function %d.%d: %s. Bytes = 0x%x, Reason = 829 : %d%d%d%d,%c,%c,%c,%c,%c,%c,%c,%c,%c,%c\n"),
+                  GetSourceContextId(), GetLocalFunctionId(),
+                  GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"), recoveredBytes, cond1, cond2, cond3, cond4, this->cond1, this->cond2, this->cond3, this->cond4, this->cond5, this->cond6, this->cond7, this->cond8, this->cond9, this->cond10);*/
+              Output::Print(_u("**NOT Redeferring function %d.%d: %s. Bytes = 0x%x, Reason = 829 : %d%d%d%d,%c,%c,%c,%c,%c,%c,%c,%c,%c,%c\n"),
+                  GetSourceContextId(), GetLocalFunctionId(),
+                  GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"), recoveredBytes, cond1, cond2, cond3, cond4, this->cond1, this->cond2, this->cond3, this->cond4, this->cond5, this->cond6, this->cond7, this->cond8, this->cond9, this->cond10);
           }
-
             return false;
         }
 
@@ -864,9 +872,12 @@ namespace Js
             tmpThreshold = UInt32Math::Mul(inactiveThreshold, this->GetCompileCount(), fn);
             if (this->GetInactiveCount() < tmpThreshold)
             {
-              PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("**NOT Redeferring function %d.%d: %s. Bytes = 0x%x, Reason = threshold\n"),
+                Output::Print(_u("**NOT Redeferring function %d.%d: %s. Bytes = 0x%x, Reason = threshold\n"),
                 GetSourceContextId(), GetLocalFunctionId(),
                 GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"), recoveredBytes);
+              /*PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("**NOT Redeferring function %d.%d: %s. Bytes = 0x%x, Reason = threshold\n"),
+                  GetSourceContextId(), GetLocalFunctionId(),
+                  GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"), recoveredBytes);*/
                 return false;
             }
         }
@@ -910,14 +921,20 @@ namespace Js
           Assert(isJitCandidate == (jitCandidateFromLoopEntryPoint || jitCandidateFromEntryPoint));
 
           if (jitCandidateFromEntryPoint) {
-            PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("**NOT Redeferring function %d.%d: %s.  Bytes = 0x%x, Reason = jitCandidateFromEntryPoint\n"),
+              Output::Print(_u("**NOT Redeferring function %d.%d: %s.  Bytes = 0x%x, Reason = jitCandidateFromEntryPoint\n"),
               GetSourceContextId(), GetLocalFunctionId(),
               GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"), recoveredBytes);
+            /*PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("**NOT Redeferring function %d.%d: %s.  Bytes = 0x%x, Reason = jitCandidateFromEntryPoint\n"),
+                GetSourceContextId(), GetLocalFunctionId(),
+                GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"), recoveredBytes);*/
           }
           if (jitCandidateFromLoopEntryPoint) {
-            PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("**NOT Redeferring function %d.%d: %s. Bytes = 0x%x, Reason = jitCandidateFromLoopEntryPoint\n"),
+              Output::Print(_u("**NOT Redeferring function %d.%d: %s. Bytes = 0x%x, Reason = jitCandidateFromLoopEntryPoint\n"),
               GetSourceContextId(), GetLocalFunctionId(),
               GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"), recoveredBytes);
+            /*PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("**NOT Redeferring function %d.%d: %s. Bytes = 0x%x, Reason = jitCandidateFromLoopEntryPoint\n"),
+                GetSourceContextId(), GetLocalFunctionId(),
+                GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"), recoveredBytes);*/
           }
         }
 
@@ -965,9 +982,12 @@ namespace Js
             recoveredBytes += sizeof(info);
         });
 
-        PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("Redeferring function %d.%d: %s Bytes = 0x%x, \n"),
+        Output::Print(_u("Redeferring function %d.%d: %s Bytes = 0x%x, length = 0x%x \n"),
                           GetSourceContextId(), GetLocalFunctionId(),
-                          GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"), recoveredBytes);
+                          GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"), recoveredBytes, this->GetUtf8SourceInfo()->GetCchLength());
+        /*PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("Redeferring function %d.%d: %s Bytes = 0x%x, length = 0x%x \n"),
+            GetSourceContextId(), GetLocalFunctionId(),
+            GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"), recoveredBytes, this->GetUtf8SourceInfo()->GetCchLength());*/
 
         ParseableFunctionInfo * parseableFunctionInfo =
             Js::ParseableFunctionInfo::NewDeferredFunctionFromFunctionBody(this);
@@ -1633,6 +1653,7 @@ namespace Js
         cond7 = ' ';
         cond8 = ' ';
         cond9 = ' ';
+        cond10 = ' ';
         this->functionInfo = RecyclerNew(scriptContext->GetRecycler(), FunctionInfo, entryPoint, attributes, functionId, this);
 
         if (nestedCount > 0)
@@ -1709,7 +1730,7 @@ namespace Js
         cond7 = ' ';
         cond8 = ' ';
         cond9 = ' ';
-
+        cond10 = ' ';
     }
 
     ParseableFunctionInfo* ParseableFunctionInfo::New(ScriptContext* scriptContext, int nestedCount,
@@ -2230,6 +2251,13 @@ namespace Js
             return GetFunctionBody();
         }
 
+        Output::Print(_u("**Undeferred function %d.%d: %s.\n"),
+            GetSourceContextId(), GetLocalFunctionId(),
+            GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"));
+        /*PHASE_PRINT_TRACE(Js::RedeferralPhase, this, _u("**Undeferred function %d.%d: %s.\n"),
+            GetSourceContextId(), GetLocalFunctionId(),
+            GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"));*/
+
         bool asmjsParseFailed = false;
         BOOL fParsed = FALSE;
         FunctionBody* returnFunctionBody = nullptr;
@@ -2389,15 +2417,16 @@ namespace Js
                         CompileScriptException se;
                         Parser ps(m_scriptContext, funcBody->GetIsStrictMode() ? TRUE : FALSE);
                         ParseNodePtr parseTree;
-                        if (!CONFIG_FLAG(DeferNested) || isDebugOrAsmJsReparse)
-                        {
-                            ps.m_deferParseCond = 'g';
-                        }
+                       
 
                         uint nextFunctionId = funcBody->GetLocalFunctionId();
                         hrParser = ps.ParseSourceWithOffset(&parseTree, pszStart, offset, length, charOffset, isCesu8, grfscr, &se,
                             &nextFunctionId, funcBody->GetRelativeLineNumber(), funcBody->GetSourceContextInfo(),
                             funcBody);
+                        if (!CONFIG_FLAG(DeferNested) || isDebugOrAsmJsReparse)
+                        {
+                            ps.m_deferParseCond = 'g';
+                        }
                         // Assert(FAILED(hrParser) || nextFunctionId == funcBody->deferredParseNextFunctionId || isDebugOrAsmJsReparse || isByteCodeDeserialization);
 
                         if (FAILED(hrParser))
