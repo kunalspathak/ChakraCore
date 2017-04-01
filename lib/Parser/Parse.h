@@ -140,7 +140,7 @@ public:
     size_t GetSourceLength() { return m_length; }
     size_t GetOriginalSourceLength() { return m_originalLength; }
     static ULONG GetDeferralThreshold(bool isProfileLoaded);
-    BOOL DeferredParse(Js::LocalFunctionId functionId);
+    BOOL DeferredParse(Js::LocalFunctionId functionId, bool * doesSizePreventDeferParse);
     BOOL IsDeferredFnc();
     void ReduceDeferredScriptLength(size_t chars);
 
@@ -185,7 +185,7 @@ private:
     int32        m_cactIdentToNodeLookup;
     uint32       m_grfscr;
     size_t      m_length;             // source length in characters excluding comments and literals
-    size_t      m_originalLength;             // source length in characters excluding comments and literals
+    size_t      m_originalLength;             // source length in characters including comments and literals
     Js::LocalFunctionId * m_nextFunctionId;
     SourceContextInfo*    m_sourceContextInfo;
 

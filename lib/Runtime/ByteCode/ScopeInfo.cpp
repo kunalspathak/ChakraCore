@@ -120,7 +120,7 @@ namespace Js
     //
     void ScopeInfo::SaveParentScopeInfo(FuncInfo* parentFunc, FuncInfo* func)
     {
-        Assert(func->IsDeferred() || func->byteCodeFunction->CanBeDeferred());
+        Assert(func->IsDeferred() || func->byteCodeFunction->CanBeDeferred() || func->byteCodeFunction->DidScriptSizePreventDeferParse());
 
         // Parent must be parsed
         FunctionBody* parent = parentFunc->byteCodeFunction->GetFunctionBody();

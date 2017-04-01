@@ -1190,7 +1190,14 @@ FuncInfo * ByteCodeGenerator::StartBindFunction(const char16 *name, uint nameLen
         {
             parsedFunctionBody->SetAttributes(
                 (Js::FunctionInfo::Attributes)(parsedFunctionBody->GetAttributes() & ~Js::FunctionInfo::Attributes::CanDefer));
+
+            if (pnode->sxFnc.DoesScriptSizePreventsDeferral())
+            {
+                parsedFunctionBody->SetAttributes(
+                    (Js::FunctionInfo::Attributes)(parsedFunctionBody->GetAttributes() | Js::FunctionInfo::Attributes::ScriptSizePreventsDeferParse));
+            }
         }
+        
         funcExprWithName =
             !(parsedFunctionBody->GetIsDeclaration() || pnode->sxFnc.IsMethod()) &&
             pnode->sxFnc.pnodeName != nullptr &&
@@ -1269,6 +1276,14 @@ FuncInfo * ByteCodeGenerator::StartBindFunction(const char16 *name, uint nameLen
         {
             attributes = (Js::FunctionInfo::Attributes)(attributes | Js::FunctionInfo::Attributes::CanDefer);
         }
+        else
+        {
+            if (pnode->sxFnc.DoesScriptSizePreventsDeferral())
+            {
+                attributes = (Js::FunctionInfo::Attributes)(attributes | Js::FunctionInfo::Attributes::ScriptSizePreventsDeferParse);
+            }
+        }
+        
 
         if (createFunctionBody)
         {

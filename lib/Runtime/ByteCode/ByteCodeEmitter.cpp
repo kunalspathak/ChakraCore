@@ -3898,6 +3898,7 @@ void ByteCodeGenerator::StartEmitFunction(ParseNode *pnodeFnc)
                     scope->GetMustInstantiate())
                 {
                     funcInfo->byteCodeFunction->SetAttributes((Js::FunctionInfo::Attributes)(funcInfo->byteCodeFunction->GetAttributes() & ~Js::FunctionInfo::Attributes::CanDefer));
+                    funcInfo->byteCodeFunction->SetAttributes((Js::FunctionInfo::Attributes)(funcInfo->byteCodeFunction->GetAttributes() & ~Js::FunctionInfo::Attributes::ScriptSizePreventsDeferParse));
                     break;
                 }
             }

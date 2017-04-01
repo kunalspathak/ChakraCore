@@ -890,11 +890,18 @@ namespace Js
             ParseNodePtr parseTree;
 
             SourceContextInfo * sourceContextInfo = pSrcInfo->sourceContextInfo;
-            ULONG deferParseThreshold = Parser::GetDeferralThreshold(sourceContextInfo->IsSourceProfileLoaded());
-            if ((ULONG)sourceLength > deferParseThreshold && !PHASE_OFF1(Phase::DeferParsePhase))
+            if (!PHASE_OFF1(Phase::DeferParsePhase))
             {
-                // Defer function bodies declared inside large dynamic blocks.
-                grfscr |= fscrDeferFncParse;
+                if ((ULONG)sourceLength > Parser::GetDeferralThreshold(sourceContextInfo->IsSourceProfileLoaded()))
+                {
+                    // Defer function bodies declared inside large dynamic blocks.
+                    grfscr |= fscrDeferFncParse;
+                }
+                else 
+                {
+                    // Record that script size was the reason to not defer parse
+                    grfscr |= fscrSizePreventsDeferParse;
+                }
             }
 
             grfscr = grfscr | fscrDynamicCode;

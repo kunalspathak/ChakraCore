@@ -124,7 +124,7 @@ bool FuncInfo::IsDeferred() const
 
 bool FuncInfo::IsRedeferrable() const
 {
-    return byteCodeFunction && byteCodeFunction->CanBeDeferred();
+    return byteCodeFunction && (byteCodeFunction->CanBeDeferred() || byteCodeFunction->DidScriptSizePreventDeferParse());
 }
 
 BOOL FuncInfo::HasSuperReference() const

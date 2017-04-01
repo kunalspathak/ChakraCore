@@ -821,12 +821,22 @@ namespace Js
 
     bool FunctionBody::DoRedeferFunction(uint inactiveThreshold) const
     {
-        if (!(this->GetFunctionInfo()->GetFunctionProxy() == this &&
-              this->CanBeDeferred() &&
-              this->GetByteCode() &&
-              this->GetCanDefer()))
+        if (
+            !(this->GetFunctionInfo()->GetFunctionProxy() == this && 
+            this->GetByteCode() && 
+            this->GetCanDefer() &&
+            // If scriptSize limit was not the reason this function was marked defer parsed
+            // then don't redefer parse as well.
+            (this->CanBeDeferred() || this->DidScriptSizePreventDeferParse()))
+            )
         {
             return false;
+        }
+
+        if (!this->CanBeDeferred() && this->DidScriptSizePreventDeferParse()) {
+            Output::Print(_u("Redeferring function from size %d.%d: %s\n"),
+                GetSourceContextId(), GetLocalFunctionId(),
+                GetDisplayName() ? GetDisplayName() : _u("Anonymous function)"));
         }
 
         if (!PHASE_FORCE(Js::RedeferralPhase, this) && !PHASE_STRESS(Js::RedeferralPhase, this))
@@ -873,7 +883,7 @@ namespace Js
 
     void FunctionBody::RedeferFunction()
     {
-        Assert(this->CanBeDeferred());
+        Assert(this->CanBeDeferred() || this->DidScriptSizePreventDeferParse());
 
 #if DBG
         if (PHASE_STATS(RedeferralPhase, this))

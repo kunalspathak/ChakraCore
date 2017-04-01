@@ -2039,6 +2039,8 @@ void Parser::ReduceDeferredScriptLength(size_t chars)
             // Stop deferring.
             m_grfscr &= ~fscrDeferFncParse;
             m_stoppedDeferredParse = TRUE;
+            // Record that script size was the reason to not defer parse
+            m_grfscr |= fscrSizePreventsDeferParse;
         }
     }
 }
@@ -4496,7 +4498,7 @@ ParseNodePtr Parser::ParseMemberList(LPCOLESTR pNameHint, uint32* pNameHintLengt
     return pnodeList;
 }
 
-BOOL Parser::DeferredParse(Js::LocalFunctionId functionId)
+BOOL Parser::DeferredParse(Js::LocalFunctionId functionId, bool * doesSizePreventDeferParse)
 {
     if ((m_grfscr & fscrDeferFncParse) != 0)
     {
@@ -4524,6 +4526,7 @@ BOOL Parser::DeferredParse(Js::LocalFunctionId functionId)
         return true;
     }
 
+    *doesSizePreventDeferParse = (m_grfscr & fscrSizePreventsDeferParse) != 0;
     return false;
 }
 
@@ -4989,19 +4992,27 @@ bool Parser::ParseFncDeclHelper(ParseNodePtr pnodeFnc, LPCOLESTR pNameHint, usho
 
         BOOL isDeferredFnc = IsDeferredFnc();
         AnalysisAssert(isDeferredFnc || pnodeFnc);
+
+        bool doesScriptSizePreventsDeferParse;
+        BOOL isValidForDeferredParse = DeferredParse(pnodeFnc->sxFnc.functionId, &doesScriptSizePreventsDeferParse);
+
         // These are the conditions that prohibit upfront deferral *and* redeferral.
-        isTopLevelDeferredFunc =
-            (!fLambda
-             && pnodeFnc
-             && DeferredParse(pnodeFnc->sxFnc.functionId)
-             && (!pnodeFnc->sxFnc.IsNested() || CONFIG_FLAG(DeferNested))
-             && !m_InAsmMode
+        bool otherHeuristics = (!fLambda
+            && pnodeFnc
+            && (!pnodeFnc->sxFnc.IsNested() || CONFIG_FLAG(DeferNested))
+            && !m_InAsmMode
             // Don't defer a module function wrapper because we need to do export resolution at parse time
-             && !fModule
+            && !fModule
             );
+        isTopLevelDeferredFunc = isValidForDeferredParse && otherHeuristics;
 
         if (pnodeFnc)
         {
+            // Check if only reason for not defer parsing is script size.
+            if (!isTopLevelDeferredFunc && otherHeuristics) {
+                Assert(!isValidForDeferredParse);
+                pnodeFnc->sxFnc.SetScriptSizePreventsDeferral(doesScriptSizePreventsDeferParse);
+            }
             pnodeFnc->sxFnc.SetCanBeDeferred(isTopLevelDeferredFunc && PnFnc::CanBeRedeferred(pnodeFnc->sxFnc.fncFlags));
             pnodeFnc->sxFnc.SetFIBPreventsDeferral(false);
         }

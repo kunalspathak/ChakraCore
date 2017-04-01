@@ -1849,10 +1849,17 @@ namespace Js
         // the script.
         // TODO: yongqu handle non-global code.
         ULONG grfscr = fscrGlobalCode | ((loadScriptFlag & LoadScriptFlag_Expression) == LoadScriptFlag_Expression ? fscrReturnExpression : 0);
-        if(((loadScriptFlag & LoadScriptFlag_disableDeferredParse) != LoadScriptFlag_disableDeferredParse) &&
-            (length > Parser::GetDeferralThreshold(sourceContextInfo->IsSourceProfileLoaded())))
+        if(((loadScriptFlag & LoadScriptFlag_disableDeferredParse) != LoadScriptFlag_disableDeferredParse))
         {
-            grfscr |= fscrDeferFncParse;
+            if ((length > Parser::GetDeferralThreshold(sourceContextInfo->IsSourceProfileLoaded())))
+            {
+                grfscr |= fscrDeferFncParse;
+            }
+            else
+            {
+                // Record that script size was the reason to not defer parse
+                grfscr |= fscrSizePreventsDeferParse;
+            }
         }
 
         if((loadScriptFlag & LoadScriptFlag_disableAsmJs) == LoadScriptFlag_disableAsmJs)

@@ -1416,6 +1416,7 @@ namespace Js
         bool GetEnclosedByGlobalFunc() const;
         void SetEnclosedByGlobalFunc();
         bool CanBeDeferred() const;
+        bool DidScriptSizePreventDeferParse() const;
         BOOL IsDeferredDeserializeFunction() const;
         BOOL IsDeferredParseFunction() const;
         FunctionInfo::Attributes GetAttributes() const;
@@ -1702,7 +1703,14 @@ namespace Js
     {
         Assert(GetFunctionInfo());
         Assert(GetFunctionInfo()->GetFunctionProxy() == this);
-        return GetFunctionInfo()->CanBeDeferred();
+        return GetFunctionInfo()->CanBeDeferred();;
+    }
+
+    inline bool FunctionProxy::DidScriptSizePreventDeferParse() const
+    {
+        Assert(GetFunctionInfo());
+        Assert(GetFunctionInfo()->GetFunctionProxy() == this);
+        return GetFunctionInfo()->DidScriptSizePreventDeferParse();
     }
 
     inline bool FunctionProxy::IsClassConstructor() const
@@ -2992,7 +3000,7 @@ namespace Js
         // Field accessors
         bool GetHasBailoutInstrInJittedCode() const { return this->m_hasBailoutInstrInJittedCode; }
         void SetHasBailoutInstrInJittedCode(bool hasBailout) { this->m_hasBailoutInstrInJittedCode = hasBailout; }
-        bool GetCanDefer() const { return this->functionInfo->CanBeDeferred() && this->m_depth == 0 && !this->m_hasActiveReference; }
+        bool GetCanDefer() const { return this->m_depth == 0 && !this->m_hasActiveReference; }
         bool GetCanReleaseLoopHeaders() const { return (this->m_depth == 0); }
         void SetPendingLoopHeaderRelease(bool pendingLoopHeaderRelease) { this->m_pendingLoopHeaderRelease = pendingLoopHeaderRelease; }
 

@@ -249,6 +249,7 @@ struct PnFnc
     DeferredFunctionStub *deferredStub;
     bool canBeDeferred;
     bool fibPreventsDeferral;
+    bool scriptSizePreventsDeferral;
     bool isBodyAndParamScopeMerged; // Indicates whether the param scope and the body scope of the function can be merged together or not.
                                     // We cannot merge both scopes together if there is any closure capture or eval is present in the param scope.
 
@@ -290,6 +291,7 @@ public:
         fncFlags = kFunctionNone;
         canBeDeferred = false;
         fibPreventsDeferral = false;
+        scriptSizePreventsDeferral = false;
     }
 
     void SetAsmjsMode(bool set = true) { SetFlags(kFunctionAsmjsMode, set); }
@@ -327,6 +329,7 @@ public:
     void SetNestedFuncEscapes(bool set = true) { nestedFuncEscapes = set; }
     void SetCanBeDeferred(bool set = true) { canBeDeferred = set; }
     void SetFIBPreventsDeferral(bool set = true) { fibPreventsDeferral = set; }
+    void SetScriptSizePreventsDeferral(bool set = true) { scriptSizePreventsDeferral = set; }
     void ResetBodyAndParamScopeMerged() { isBodyAndParamScopeMerged = false; }
 
     bool CallsEval() const { return HasFlags(kFunctionCallsEval); }
@@ -367,6 +370,7 @@ public:
     bool NestedFuncEscapes() const { return nestedFuncEscapes; }
     bool CanBeDeferred() const { return canBeDeferred; }
     bool FIBPreventsDeferral() const { return fibPreventsDeferral; }
+    bool DoesScriptSizePreventsDeferral() const { return scriptSizePreventsDeferral; }
     bool IsBodyAndParamScopeMerged() { return isBodyAndParamScopeMerged; }
 
     size_t LengthInBytes()
