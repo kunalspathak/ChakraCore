@@ -4278,6 +4278,10 @@ CHAKRA_API JsCopyString(
             *writtenLength = count;
         }
     }
+    else if (writtenLength)
+    {
+        *writtenLength = 0;
+    }
 
     return JsNoError;
 }

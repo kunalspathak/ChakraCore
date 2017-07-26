@@ -293,7 +293,7 @@ CHAKRA_API
 /// <param name="buffer">Pointer to buffer</param>
 /// <param name="bufferSize">Buffer size</param>
 /// <param name="writtenLength">Total number of characters written. This is only
-///                             populated when passed with non-null `buffer`.
+///                             populated when passed with non-null `buffer`, else set to 0.
 /// </param>
 /// <param name="actualLength">Total number of UTF8 decoded bytes present in `value`.
 ///                            Useful to initialize buffer of appropriate size that
