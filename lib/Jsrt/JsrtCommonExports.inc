@@ -108,6 +108,7 @@
     JsCreateStringUtf16
     JsCopyString
     JsCopyStringUtf16
+	JsGetStringLengthSizeT
     JsParse
     JsRun
     JsSerialize

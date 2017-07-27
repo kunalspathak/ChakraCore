@@ -286,14 +286,18 @@ CHAKRA_API
 ///     <para>
 ///         When size of the `buffer` is unknown,
 ///         `buffer` argument can be nullptr.
-///         In that case, `written` argument will return the length needed.
+///         In that case, `actualLength` argument will return the length needed to
+///         accomodate all the UTF8 decoded bytes present in `value`.
+///         `writtenLength` will only get populated when valid `buffer` is passed as
+///          argument.
 ///     </para>
 /// </remarks>
 /// <param name="value">JavascriptString value</param>
 /// <param name="buffer">Pointer to buffer</param>
 /// <param name="bufferSize">Buffer size</param>
-/// <param name="writtenLength">Total number of characters written. This is only
-///                             populated when passed with non-null `buffer`, else set to 0.
+/// <param name="writtenLength">Total number of UTF8 decoded bytes written. This is only
+///                             populated when passed with non-null `buffer`,else is
+///                             set to 0.
 /// </param>
 /// <param name="actualLength">Total number of UTF8 decoded bytes present in `value`.
 ///                            Useful to initialize buffer of appropriate size that

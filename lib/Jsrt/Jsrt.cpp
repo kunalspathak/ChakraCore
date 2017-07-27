@@ -1153,6 +1153,20 @@ CHAKRA_API JsConvertValueToNumber(_In_ JsValueRef value, _Out_ JsValueRef *resul
 
 CHAKRA_API JsGetStringLength(_In_ JsValueRef value, _Out_ int *length)
 {
+    PARAM_NOT_NULL(length);
+
+    size_t lengthSizeT = 0;
+    JsErrorCode errorCode = JsGetStringLengthSizeT(value, &lengthSizeT);
+    if (errorCode != JsNoError)
+    {
+        return errorCode;
+    }
+    *length = static_cast<int>(lengthSizeT);
+    return JsNoError;
+}
+
+CHAKRA_API JsGetStringLengthSizeT(_In_ JsValueRef value, _Out_ size_t *length)
+{
     VALIDATE_JSREF(value);
     PARAM_NOT_NULL(length);
 
@@ -1163,7 +1177,7 @@ CHAKRA_API JsGetStringLength(_In_ JsValueRef value, _Out_ int *length)
             RETURN_NO_EXCEPTION(JsErrorInvalidArgument);
         }
 
-        *length = Js::JavascriptString::FromVar(value)->GetLengthAsSignedInt();
+        *length = Js::JavascriptString::FromVar(value)->GetLength();
     }
     END_JSRT_NO_EXCEPTION
 }

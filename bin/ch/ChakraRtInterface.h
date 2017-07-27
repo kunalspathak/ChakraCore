@@ -77,7 +77,7 @@ struct JsAPIHooks
     typedef JsErrorCode(WINAPI *JsrtParse)(JsValueRef script, JsSourceContext sourceContext, JsValueRef sourceUrl, JsParseScriptAttributes parseAttributes, JsValueRef *result);
     typedef JsErrorCode(WINAPI *JsrtSerialize)(JsValueRef script, JsValueRef *buffer, JsParseScriptAttributes parseAttributes);
     typedef JsErrorCode(WINAPI *JsrtRunSerialized)(JsValueRef buffer, JsSerializedLoadScriptCallback scriptLoadCallback, JsSourceContext sourceContext, JsValueRef sourceUrl, JsValueRef * result);
-    typedef JsErrorCode(WINAPI *JsrtStringToPointer)(JsValueRef value, const wchar_t **buffer, size_t *stringLength);
+    typedef JsErrorCode(WINAPI *JsrtStringLengthSizeT)(JsValueRef value, size_t *stringLength);
     typedef JsErrorCode(WINAPI *JsrtCopyString)(JsValueRef value, char* buffer, size_t bufferSize, size_t* writtenLength, size_t* actualLength);
     typedef JsErrorCode(WINAPI *JsrtCreateString)(const char *content, size_t length, JsValueRef *value);
     typedef JsErrorCode(WINAPI *JsrtCreateStringUtf16)(const uint16_t *content, size_t length, JsValueRef *value);
@@ -173,7 +173,7 @@ struct JsAPIHooks
     JsrtParse pfJsrtParse;
     JsrtSerialize pfJsrtSerialize;
     JsrtRunSerialized pfJsrtRunSerialized;
-    JsrtStringToPointer pfJsrtStringToPointer;
+    JsrtStringLengthSizeT pfJsrtStringLengthSizeT;
     JsrtCreateString pfJsrtCreateString;
     JsrtCreateStringUtf16 pfJsrtCreateStringUtf16;
     JsrtCopyString pfJsrtCopyString;
@@ -398,7 +398,7 @@ public:
     static JsErrorCode WINAPI JsParse(JsValueRef script, JsSourceContext sourceContext, JsValueRef sourceUrl, JsParseScriptAttributes parseAttributes, JsValueRef *result) { return HOOK_JS_API(Parse(script, sourceContext, sourceUrl, parseAttributes, result)); }
     static JsErrorCode WINAPI JsSerialize(JsValueRef script, JsValueRef *buffer, JsParseScriptAttributes parseAttributes) { return HOOK_JS_API(Serialize(script, buffer, parseAttributes)); }
     static JsErrorCode WINAPI JsRunSerialized(JsValueRef buffer, JsSerializedLoadScriptCallback scriptLoadCallback, JsSourceContext sourceContext, JsValueRef sourceUrl, JsValueRef * result) { return HOOK_JS_API(RunSerialized(buffer, scriptLoadCallback, sourceContext, sourceUrl, result)); }
-    static JsErrorCode WINAPI JsStringToPointer(JsValueRef value, const wchar_t **stringValue, size_t *stringLength) { return HOOK_JS_API(StringToPointer(value, stringValue, stringLength)); }
+    static JsErrorCode WINAPI JsStringLengthSizeT(JsValueRef value, size_t *stringLength) { return HOOK_JS_API(StringLengthSizeT(value, stringLength)); }
     static JsErrorCode WINAPI JsCopyString(JsValueRef value, char* buffer, size_t bufferSize, size_t* writtenLength, size_t* actualLength) { return HOOK_JS_API(CopyString(value, buffer, bufferSize, writtenLength, actualLength)); }
     static JsErrorCode WINAPI JsCreateString(const char *content, size_t length, JsValueRef *value) { return HOOK_JS_API(CreateString(content, length, value)); }
     static JsErrorCode WINAPI JsCreateStringUtf16(const uint16_t *content, size_t length, JsValueRef *value) { return HOOK_JS_API(CreateStringUtf16(content, length, value)); }

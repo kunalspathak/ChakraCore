@@ -211,8 +211,7 @@ public:
         size_t actualLen = 0;
         if (errorCode == JsNoError)
         {
-            const wchar_t* unused;
-            errorCode = ChakraRTInterface::JsStringToPointer(strValue, &unused, &strLen);
+            errorCode = ChakraRTInterface::JsStringLengthSizeT(strValue, &strLen);
             if (errorCode == JsNoError)
             {
                 // Assume ascii characters

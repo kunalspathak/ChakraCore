@@ -1340,7 +1340,7 @@ typedef unsigned short uint16_t;
             _Out_ JsValueRef *numberValue);
 
     /// <summary>
-    ///     Gets the length of a string value.
+    ///     Gets the length in `int` of a string value.
     /// </summary>
     /// <param name="stringValue">The string value to get the length of.</param>
     /// <param name="length">The length of the string.</param>
@@ -1351,6 +1351,19 @@ typedef unsigned short uint16_t;
         JsGetStringLength(
             _In_ JsValueRef stringValue,
             _Out_ int *length);
+
+    /// <summary>
+    ///     Gets the length in `size_t` of a string value.
+    /// </summary>
+    /// <param name="stringValue">The string value to get the length of.</param>
+    /// <param name="length">The length of the string.</param>
+    /// <returns>
+    ///     The code <c>JsNoError</c> if the operation succeeded, a failure code otherwise.
+    /// </returns>
+    CHAKRA_API
+        JsGetStringLengthSizeT(
+            _In_ JsValueRef stringValue,
+            _Out_ size_t *length);
 
     /// <summary>
     ///     Converts the value to string using standard JavaScript semantics.
