@@ -206,12 +206,12 @@ public:
         {
             strValue = value;
         }
-        size_t strLen = 0;
+        int strLen = 0;
         size_t writtenLen = 0;
         size_t actualLen = 0;
         if (errorCode == JsNoError)
         {
-            errorCode = ChakraRTInterface::JsGetStringLengthSizeT(strValue, &strLen);
+            errorCode = ChakraRTInterface::JsGetStringLength(strValue, &strLen);
             if (errorCode == JsNoError)
             {
                 // Assume ascii characters
